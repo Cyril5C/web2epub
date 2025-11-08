@@ -7,126 +7,133 @@
   <style>
     body {
       font-family: Arial, sans-serif;
-      max-width: 900px;
-      margin: 50px auto;
-      padding: 20px;
-      background: #f5f5f5;
+      max-width: 800px;
+      margin: 20px auto;
+      padding: 10px;
+      background: #fff;
     }
     h1 {
-      color: #333;
+      color: #000;
+      font-size: 24px;
     }
-    .search {
-      margin: 20px 0;
-      padding: 10px;
+    input {
       width: 100%;
-      font-size: 16px;
-      border: 1px solid #ddd;
+      padding: 8px;
+      margin: 10px 0;
+      font-size: 14px;
+      border: 1px solid #ccc;
     }
-    .epub-list {
+    ul {
       list-style: none;
       padding: 0;
     }
-    .epub-item {
-      background: white;
-      padding: 15px;
-      margin: 10px 0;
-      border: 1px solid #ddd;
-      border-radius: 4px;
+    li {
+      border: 1px solid #ccc;
+      padding: 10px;
+      margin: 5px 0;
+      background: #f9f9f9;
     }
-    .epub-title {
+    .title {
       font-weight: bold;
+      display: block;
       margin-bottom: 5px;
     }
-    .epub-meta {
+    .meta {
       color: #666;
-      font-size: 14px;
-      margin-bottom: 10px;
+      font-size: 12px;
+      display: block;
+      margin-bottom: 8px;
     }
-    .btn {
-      padding: 8px 15px;
+    a, button {
+      padding: 6px 12px;
       margin-right: 5px;
-      border: none;
-      cursor: pointer;
-      border-radius: 3px;
+      border: 1px solid #000;
+      background: #fff;
+      color: #000;
       text-decoration: none;
-      display: inline-block;
-      font-size: 14px;
-    }
-    .btn-download {
-      background: #4CAF50;
-      color: white;
-    }
-    .btn-delete {
-      background: #f44336;
-      color: white;
+      font-size: 12px;
+      cursor: pointer;
     }
     .empty {
       text-align: center;
       color: #999;
-      padding: 40px;
+      padding: 20px;
     }
   </style>
 </head>
 <body>
   <h1>Mes EPUB</h1>
-
-  <input type="text" id="search" class="search" placeholder="Rechercher...">
-
-  <ul id="list" class="epub-list">
+  <input type="text" id="search" placeholder="Rechercher...">
+  <ul id="list">
     <li class="empty">Chargement...</li>
   </ul>
 
   <script>
-    let epubs = [];
+    var epubs = [];
 
-    async function load() {
-      try {
-        const res = await fetch('/api/epubs');
-        epubs = await res.json();
-        display(epubs);
-      } catch (e) {
-        document.getElementById('list').innerHTML = '<li class="empty">Erreur de chargement</li>';
-      }
+    function load() {
+      var xhr = new XMLHttpRequest();
+      xhr.open('GET', '/api/epubs', true);
+      xhr.onload = function() {
+        if (xhr.status === 200) {
+          epubs = JSON.parse(xhr.responseText);
+          display(epubs);
+        } else {
+          document.getElementById('list').innerHTML = '<li class="empty">Erreur</li>';
+        }
+      };
+      xhr.send();
     }
 
     function display(items) {
-      const list = document.getElementById('list');
+      var list = document.getElementById('list');
 
       if (items.length === 0) {
         list.innerHTML = '<li class="empty">Aucun EPUB</li>';
         return;
       }
 
-      list.innerHTML = items.map(e => `
-        <li class="epub-item">
-          <div class="epub-title">${esc(e.title)}</div>
-          <div class="epub-meta">
-            ${new Date(e.uploadedAt).toLocaleDateString('fr-FR')} -
-            ${(e.size / 1024 / 1024).toFixed(2)} MB
-          </div>
-          <a href="/api/download/${e.id}" class="btn btn-download">Télécharger</a>
-          <button class="btn btn-delete" onclick="del('${e.id}')">Supprimer</button>
-        </li>
-      `).join('');
+      var html = '';
+      for (var i = 0; i < items.length; i++) {
+        var e = items[i];
+        var date = new Date(e.uploadedAt);
+        var size = (e.size / 1024 / 1024).toFixed(2);
+        html += '<li>' +
+          '<span class="title">' + esc(e.title) + '</span>' +
+          '<span class="meta">' + date.toLocaleDateString('fr-FR') + ' - ' + size + ' MB</span>' +
+          '<a href="/api/download/' + e.id + '">Telecharger</a>' +
+          '<button onclick="del(\'' + e.id + '\')">Supprimer</button>' +
+          '</li>';
+      }
+      list.innerHTML = html;
     }
 
-    async function del(id) {
+    function del(id) {
       if (!confirm('Supprimer ?')) return;
-      await fetch('/api/epubs/' + id, { method: 'DELETE' });
-      load();
+      var xhr = new XMLHttpRequest();
+      xhr.open('DELETE', '/api/epubs/' + id, true);
+      xhr.onload = function() {
+        load();
+      };
+      xhr.send();
     }
 
     function esc(text) {
-      const div = document.createElement('div');
+      var div = document.createElement('div');
       div.textContent = text;
       return div.innerHTML;
     }
 
-    document.getElementById('search').addEventListener('input', (e) => {
-      const q = e.target.value.toLowerCase();
-      const filtered = q ? epubs.filter(epub => epub.title.toLowerCase().includes(q)) : epubs;
-      display(filtered);
-    });
+    document.getElementById('search').onkeyup = function() {
+      var q = this.value.toLowerCase();
+      var filtered = [];
+      for (var i = 0; i < epubs.length; i++) {
+        if (epubs[i].title.toLowerCase().indexOf(q) !== -1) {
+          filtered.push(epubs[i]);
+        }
+      }
+      display(q ? filtered : epubs);
+    };
 
     load();
   </script>
