@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Web2EPUB Extension</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .container {
+            background: white;
+            color: #333;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+        }
+        h1 {
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+        .button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px 5px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        .button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            display: none;
+        }
+        .status.show {
+            display: block;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        .article {
+            margin: 30px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            border-radius: 4px;
+        }
+        .steps {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .steps ol {
+            margin: 0;
+            padding-left: 20px;
+        }
+        .steps li {
+            margin: 10px 0;
+        }
+        code {
+            background: #333;
+            color: #f8f8f8;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Page de Test Web2EPUB</h1>
+
+        <div class="article">
+            <h2>Ceci est un article de test pour l'extension EPUB</h2>
+            <p><strong>Auteur :</strong> Web2EPUB Team</p>
+            <p><strong>Date :</strong> 8 novembre 2025</p>
+            <hr>
+            <p>
+                EPUB (acronyme de « electronic publication » ou « publication électronique »)
+                est un format ouvert standardisé pour les livres numériques. Proposé par
+                l'International Digital Publishing Forum (IDPF), EPUB est conçu pour faciliter
+                la mise en page du contenu, le texte affiché étant ajusté pour le type d'appareil
+                de lecture.
+            </p>
+            <p>
+                Ce format est compatible avec la plupart des liseuses électroniques, à l'exception
+                notable des Kindle d'Amazon qui utilisent leur propre format propriétaire. EPUB
+                permet d'intégrer des images, de la mise en forme avancée, et même des éléments
+                interactifs dans les versions les plus récentes du standard.
+            </p>
+            <p>
+                Le format EPUB est basé sur trois standards ouverts : HTML pour le contenu,
+                CSS pour la présentation, et XML pour les métadonnées. Cette architecture
+                modulaire en fait un format flexible et évolutif, adapté aux besoins futurs
+                de l'édition numérique.
+            </p>
+        </div>
+
+        <div class="steps">
+            <h3>📝 Instructions pour tester l'extension :</h3>
+            <ol>
+                <li>Cette page contient un article de test</li>
+                <li>Essayez le raccourci clavier : <code>Ctrl+Shift+E</code> (ou <code>Cmd+Shift+E</code> sur Mac)</li>
+                <li>Ou cliquez sur le bouton ci-dessous pour tester manuellement</li>
+                <li>Attendez la notification</li>
+                <li>Vérifiez sur <a href="http://localhost:3000" target="_blank">http://localhost:3000</a></li>
+            </ol>
+        </div>
+
+        <button class="button" onclick="testExtraction()">🚀 Tester l'extraction (Console)</button>
+        <button class="button" onclick="openDebug()">🔧 Ouvrir about:debugging</button>
+        <button class="button" onclick="checkServer()">✅ Vérifier le serveur</button>
+
+        <div id="status" class="status"></div>
+
+        <div class="steps" style="margin-top: 30px;">
+            <h3>🔍 Si l'extension ne fonctionne toujours pas :</h3>
+            <ol>
+                <li>Ouvrez <code>about:debugging#/runtime/this-firefox</code></li>
+                <li>Vérifiez que "Web2EPUB" est dans la liste</li>
+                <li>Cliquez sur "Recharger" si nécessaire</li>
+                <li>Cliquez sur "Inspecter" et regardez la console pour les erreurs</li>
+                <li>Revenez sur cette page et appuyez sur <code>Ctrl+Shift+E</code></li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        function showStatus(message, type = 'info') {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = `status show ${type}`;
+
+            setTimeout(() => {
+                status.className = 'status';
+            }, 5000);
+        }
+
+        async function testExtraction() {
+            showStatus('🔍 Test de l\'extraction dans la console du navigateur...', 'info');
+
+            console.log('%c=== TEST WEB2EPUB ===', 'color: #667eea; font-size: 20px; font-weight: bold;');
+            console.log('Pour extraire cet article, ouvrez la console de l\'extension :');
+            console.log('1. about:debugging#/runtime/this-firefox');
+            console.log('2. Web2EPUB → Inspecter');
+            console.log('3. Dans la console, tapez :');
+            console.log('');
+            console.log('%cbrowser.tabs.query({active: true, currentWindow: true}).then(tabs => browser.tabs.sendMessage(tabs[0].id, {action: "extractArticle"}));', 'background: #333; color: #f8f8f8; padding: 10px; font-family: monospace;');
+            console.log('');
+            console.log('4. Pressez Entrée');
+            console.log('5. Vérifiez http://localhost:3000');
+
+            showStatus('✅ Instructions affichées dans la console (F12)', 'success');
+        }
+
+        function openDebug() {
+            window.open('about:debugging#/runtime/this-firefox', '_blank');
+            showStatus('📖 Page de debug ouverte dans un nouvel onglet', 'success');
+        }
+
+        async function checkServer() {
+            try {
+                const response = await fetch('http://localhost:3000/health');
+                if (response.ok) {
+                    const data = await response.json();
+                    showStatus('✅ Serveur accessible ! Status: ' + data.status, 'success');
+
+                    // Ouvrir l'interface
+                    setTimeout(() => {
+                        window.open('http://localhost:3000', '_blank');
+                    }, 1000);
+                } else {
+                    showStatus('❌ Serveur répond mais avec une erreur', 'error');
+                }
+            } catch (error) {
+                showStatus('❌ Serveur non accessible. Vérifiez qu\'il est démarré (cd server && npm start)', 'error');
+            }
+        }
+
+        // Auto-check server on load
+        window.addEventListener('load', () => {
+            setTimeout(checkServer, 1000);
+        });
+    </script>
+</body>
+</html>
