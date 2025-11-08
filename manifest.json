@@ -4,6 +4,12 @@
   "version": "1.0.0",
   "description": "Extraire le contenu d'articles web et les convertir en EPUB",
 
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "web2epub@cyril5c.github.io"
+    }
+  },
+
   "permissions": [
     "activeTab",
     "storage",
