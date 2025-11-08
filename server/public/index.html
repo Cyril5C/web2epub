@@ -132,10 +132,11 @@
     function getSourceName(domain) {
       if (domain.indexOf('lemonde.fr') !== -1) return 'Le Monde';
       if (domain.indexOf('mediapart.fr') !== -1) return 'Mediapart';
+      if (domain.indexOf('www-mediapart-fr.bnf.idm.oclc.org') !== -1) return 'Mediapart';
       if (domain.indexOf('liberation.fr') !== -1) return 'Liberation';
       if (domain.indexOf('lefigaro.fr') !== -1) return 'Le Figaro';
-      if (domain.indexOf('nouvelobs.com') !== -1) return 'L\'Obs';
-      if (domain.indexOf('humanite.fr') !== -1) return 'L\'Humanite';
+      if (domain.indexOf('nouvelobs.com') !== -1) return "L'Obs";
+      if (domain.indexOf('humanite.fr') !== -1) return "L'Humanite";
       if (domain.indexOf('france24.com') !== -1) return 'France 24';
       if (domain.indexOf('francetvinfo.fr') !== -1) return 'franceinfo';
       if (domain.indexOf('rfi.fr') !== -1) return 'RFI';
