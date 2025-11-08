@@ -7,16 +7,26 @@ const fs = require('fs');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Railway persistent storage: use /data if available, otherwise local
+const STORAGE_ROOT = process.env.RAILWAY_VOLUME_MOUNT_PATH || __dirname;
+const UPLOADS_DIR = path.join(STORAGE_ROOT, 'uploads');
+const METADATA_FILE = path.join(STORAGE_ROOT, 'metadata.json');
+
+console.log('Storage configuration:');
+console.log('- Root:', STORAGE_ROOT);
+console.log('- Uploads:', UPLOADS_DIR);
+console.log('- Metadata:', METADATA_FILE);
+
 // Ensure uploads directory exists
-const UPLOADS_DIR = path.join(__dirname, 'uploads');
 if (!fs.existsSync(UPLOADS_DIR)) {
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+  console.log('Created uploads directory');
 }
 
 // Ensure metadata file exists
-const METADATA_FILE = path.join(__dirname, 'metadata.json');
 if (!fs.existsSync(METADATA_FILE)) {
   fs.writeFileSync(METADATA_FILE, JSON.stringify([], null, 2));
+  console.log('Created metadata file');
 }
 
 // Configure multer for file uploads

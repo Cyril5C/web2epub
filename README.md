@@ -80,9 +80,27 @@ zip -r web2epub.xpi manifest.json background.js content.js options.html options.
 
 ## 🌐 Accès distant
 
-Pour accéder à vos EPUB depuis votre liseuse en dehors de votre réseau local :
+Pour accéder à vos EPUB depuis votre liseuse n'importe où :
 
-### Option 1 : Tunnel ngrok (simple, temporaire)
+### Option 1 : Railway (Recommandé ⭐)
+
+**Hébergement cloud gratuit avec URL publique permanente**
+
+Suivez le guide complet : [RAILWAY_DEPLOY.md](RAILWAY_DEPLOY.md)
+
+Résumé rapide :
+1. Créez un compte sur https://railway.app
+2. Déployez le dépôt GitHub `Cyril5C/web2epub`
+3. Ajoutez un volume persistant (1GB)
+4. Récupérez l'URL publique (ex: `https://web2epub.railway.app`)
+5. Configurez l'extension avec cette URL
+
+✅ Gratuit jusqu'à 500h/mois
+✅ HTTPS automatique
+✅ Accessible partout
+✅ Pas de configuration réseau
+
+### Option 2 : Tunnel ngrok (simple, temporaire)
 
 ```bash
 # Installez ngrok : https://ngrok.com/

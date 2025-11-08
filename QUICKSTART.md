@@ -1,6 +1,20 @@
 # 🚀 Guide de démarrage rapide - Web2EPUB
 
-## Installation en 3 minutes
+## Deux options de déploiement
+
+### Option A : Hébergement cloud Railway (Recommandé ⭐)
+
+**Idéal pour :** Accès depuis n'importe où (liseuse, téléphone, etc.)
+
+Temps : 10 minutes | Gratuit | Pas de configuration réseau
+
+👉 **[Guide complet Railway](RAILWAY_DEPLOY.md)**
+
+### Option B : Installation locale
+
+**Idéal pour :** Tests rapides ou usage sur réseau local uniquement
+
+## Installation locale en 3 minutes
 
 ### Étape 1 : Installation automatique
 
