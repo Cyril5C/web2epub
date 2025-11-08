@@ -7,8 +7,19 @@
   "permissions": [
     "activeTab",
     "storage",
+    "notifications",
     "<all_urls>"
   ],
+
+  "commands": {
+    "_execute_browser_action": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+E",
+        "mac": "Command+Shift+E"
+      },
+      "description": "Extraire l'article et convertir en EPUB"
+    }
+  },
 
   "background": {
     "scripts": ["lib/jszip.min.js", "background.js"]
