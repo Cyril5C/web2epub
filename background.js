@@ -300,7 +300,8 @@ ${imageManifestItems.join('\n')}
 // Send EPUB to server
 async function sendToServer(epubBlob, title, url, domain) {
   const settings = await browser.storage.sync.get({
-    serverUrl: 'https://web2epub-production.up.railway.app'
+    serverUrl: 'https://web2epub-production.up.railway.app',
+    apiKey: 'web2epub-secret-key-change-me'
   });
 
   const formData = new FormData();
@@ -313,11 +314,15 @@ async function sendToServer(epubBlob, title, url, domain) {
 
   const response = await fetch(`${settings.serverUrl}/upload`, {
     method: 'POST',
+    headers: {
+      'X-API-Key': settings.apiKey
+    },
     body: formData
   });
 
   if (!response.ok) {
-    throw new Error('Erreur lors de l\'envoi au serveur');
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || 'Erreur lors de l\'envoi au serveur');
   }
 
   return await response.json();

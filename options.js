@@ -4,14 +4,17 @@ document.getElementById('save').addEventListener('click', saveOptions);
 
 async function loadOptions() {
   const settings = await browser.storage.sync.get({
-    serverUrl: 'http://localhost:3000'
+    serverUrl: 'http://localhost:3000',
+    apiKey: 'web2epub-secret-key-change-me'
   });
 
   document.getElementById('serverUrl').value = settings.serverUrl;
+  document.getElementById('apiKey').value = settings.apiKey;
 }
 
 async function saveOptions() {
   const serverUrl = document.getElementById('serverUrl').value.trim();
+  const apiKey = document.getElementById('apiKey').value.trim();
 
   // Validate URL
   try {
@@ -21,8 +24,15 @@ async function saveOptions() {
     return;
   }
 
+  // Validate API key
+  if (!apiKey) {
+    showStatus('Clé API requise', 'error');
+    return;
+  }
+
   await browser.storage.sync.set({
-    serverUrl: serverUrl
+    serverUrl: serverUrl,
+    apiKey: apiKey
   });
 
   showStatus('Paramètres enregistrés avec succès', 'success');

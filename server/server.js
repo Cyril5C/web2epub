@@ -3,10 +3,18 @@ const multer = require('multer');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const basicAuth = require('express-basic-auth');
+const rateLimit = require('express-rate-limit');
+const helmet = require('helmet');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
+
+// Security configuration
+const WEB_USERNAME = process.env.WEB_USERNAME || 'admin';
+const WEB_PASSWORD = process.env.WEB_PASSWORD || 'epub2024';
+const API_KEY = process.env.API_KEY || 'web2epub-secret-key-change-me';
 
 // Railway persistent storage: use /data if available, otherwise local
 const STORAGE_ROOT = process.env.RAILWAY_VOLUME_MOUNT_PATH || __dirname;
@@ -58,9 +66,54 @@ const upload = multer({
   }
 });
 
+// Security middleware
+app.use(helmet({
+  contentSecurityPolicy: false // Disable CSP for now to allow inline scripts in index.html
+}));
+
+// Rate limiting
+const uploadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20, // Max 20 uploads per 15 minutes
+  message: 'Trop de requêtes, veuillez réessayer plus tard'
+});
+
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100, // Max 100 requests per 15 minutes
+  message: 'Trop de requêtes, veuillez réessayer plus tard'
+});
+
+// API Key validation middleware
+function validateApiKey(req, res, next) {
+  const apiKey = req.headers['x-api-key'] || req.query.apiKey;
+  if (apiKey === API_KEY) {
+    next();
+  } else {
+    res.status(401).json({ error: 'API key invalide' });
+  }
+}
+
+// HTTP Basic Auth for web interface
+const webAuth = basicAuth({
+  users: { [WEB_USERNAME]: WEB_PASSWORD },
+  challenge: true,
+  realm: 'Web2EPUB Admin'
+});
+
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Protected public directory and API endpoints
+app.use('/api', apiLimiter, webAuth);
+
+// Serve index.html with authentication
+app.get('/', webAuth, (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Serve other static files without authentication
 app.use(express.static('public'));
 
 // Helper functions
@@ -83,8 +136,8 @@ function writeMetadata(metadata) {
 }
 
 // Routes
-// Upload EPUB
-app.post('/upload', upload.single('epub'), (req, res) => {
+// Upload EPUB (protected by API key)
+app.post('/upload', uploadLimiter, validateApiKey, upload.single('epub'), (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'Aucun fichier fourni' });
