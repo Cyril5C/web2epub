@@ -16,13 +16,6 @@
       color: #000;
       font-size: 24px;
     }
-    input {
-      width: 100%;
-      padding: 8px;
-      margin: 10px 0;
-      font-size: 14px;
-      border: 1px solid #ccc;
-    }
     ul {
       list-style: none;
       padding: 0;
@@ -73,7 +66,6 @@
 </head>
 <body>
   <h1>Mes EPUB</h1>
-  <input type="text" id="search" placeholder="Rechercher...">
   <ul id="list">
     <li class="empty">Chargement...</li>
   </ul>
@@ -149,17 +141,6 @@
       if (domain.indexOf('rfi.fr') !== -1) return 'RFI';
       return domain.replace('www.', '');
     }
-
-    document.getElementById('search').onkeyup = function() {
-      var q = this.value.toLowerCase();
-      var filtered = [];
-      for (var i = 0; i < epubs.length; i++) {
-        if (epubs[i].title.toLowerCase().indexOf(q) !== -1) {
-          filtered.push(epubs[i]);
-        }
-      }
-      display(q ? filtered : epubs);
-    };
 
     load();
   </script>
