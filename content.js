@@ -30,12 +30,22 @@ function extractArticle() {
   } else if (domain.includes('mediapart.fr')) {
     article = extractMediapart();
   } else {
-    // Fallback to generic extraction
+    article = extractGeneric();
+  }
+
+  // Fallback to generic if site-specific failed
+  if ((!article || !article.content) && domain.includes('lemonde.fr')) {
+    console.log('Le Monde extractor failed, trying generic...');
     article = extractGeneric();
   }
 
   if (!article || !article.content) {
     throw new Error('Impossible d\'extraire le contenu de l\'article');
+  }
+
+  // Ensure we have a title
+  if (!article.title || article.title.trim() === '') {
+    article.title = document.querySelector('title')?.textContent.trim() || 'Sans titre';
   }
 
   article.url = url;
@@ -54,28 +64,69 @@ function extractLeMonde() {
     content: ''
   };
 
-  // Title
-  const titleEl = document.querySelector('h1.article__title');
-  if (titleEl) {
-    article.title = titleEl.textContent.trim();
+  // Title - try multiple selectors
+  const titleSelectors = [
+    'h1.article__title',
+    'h1[itemprop="headline"]',
+    'article h1',
+    'h1',
+    'meta[property="og:title"]'
+  ];
+
+  for (const selector of titleSelectors) {
+    const el = document.querySelector(selector);
+    if (el) {
+      article.title = el.content || el.textContent.trim();
+      if (article.title) break;
+    }
   }
 
   // Author
-  const authorEl = document.querySelector('.meta__author');
-  if (authorEl) {
-    article.author = authorEl.textContent.trim();
+  const authorSelectors = [
+    '.meta__author',
+    '[itemprop="author"]',
+    '.author',
+    'meta[name="author"]'
+  ];
+
+  for (const selector of authorSelectors) {
+    const el = document.querySelector(selector);
+    if (el) {
+      article.author = el.content || el.textContent.trim();
+      if (article.author) break;
+    }
   }
 
   // Date
-  const dateEl = document.querySelector('.meta__date');
-  if (dateEl) {
-    article.date = dateEl.textContent.trim();
+  const dateSelectors = [
+    '.meta__date',
+    'time[datetime]',
+    '[itemprop="datePublished"]',
+    'meta[property="article:published_time"]'
+  ];
+
+  for (const selector of dateSelectors) {
+    const el = document.querySelector(selector);
+    if (el) {
+      article.date = el.getAttribute('datetime') || el.content || el.textContent.trim();
+      if (article.date) break;
+    }
   }
 
   // Content
-  const contentEl = document.querySelector('.article__content');
-  if (contentEl) {
-    article.content = cleanContent(contentEl);
+  const contentSelectors = [
+    '.article__content',
+    'article .article__paragraph',
+    '[itemprop="articleBody"]',
+    'article'
+  ];
+
+  for (const selector of contentSelectors) {
+    const el = document.querySelector(selector);
+    if (el && el.textContent.trim().length > 200) {
+      article.content = cleanContent(el);
+      break;
+    }
   }
 
   return article;
