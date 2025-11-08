@@ -1,0 +1,169 @@
+Web2EPUB - Structure du projet
+================================
+
+web2epub/
+│
+├── 📄 manifest.json              # Configuration de l'extension Firefox
+├── 🎯 background.js              # Script d'arrière-plan (génération EPUB)
+├── 📝 content.js                 # Script d'extraction de contenu
+├── ⚙️  options.html              # Interface de configuration
+├── ⚙️  options.js                # Logique de configuration
+│
+├── 📚 Documentation
+│   ├── README.md                 # Documentation principale
+│   ├── QUICKSTART.md             # Guide de démarrage rapide
+│   ├── ARCHITECTURE.md           # Documentation d'architecture
+│   └── CONTRIBUTING.md           # Guide de contribution
+│
+├── 🔧 Scripts
+│   ├── install.sh                # Script d'installation automatique
+│   ├── verify.sh                 # Script de vérification
+│   └── package.json              # Configuration npm (racine)
+│
+├── 🎨 Resources
+│   ├── icons/
+│   │   └── icon.svg              # Icône de l'extension
+│   ├── lib/
+│   │   └── jszip.min.js          # Bibliothèque JSZip (à télécharger)
+│   └── .gitignore                # Fichiers à ignorer par Git
+│
+└── 🖥️  server/                    # Serveur Node.js
+    ├── server.js                 # Serveur Express
+    ├── package.json              # Dépendances du serveur
+    ├── .env.example              # Exemple de configuration
+    ├── metadata.json             # Index des EPUB (généré)
+    │
+    ├── public/                   # Fichiers statiques
+    │   └── index.html            # Interface web de consultation
+    │
+    └── uploads/                  # Stockage des EPUB (généré)
+        └── *.epub
+
+
+Flux de l'application
+=====================
+
+1. EXTRACTION (Firefox)
+   ┌─────────────────────────────────────────┐
+   │ L'utilisateur visite un article         │
+   │              ↓                           │
+   │ Clic sur l'icône de l'extension         │
+   │              ↓                           │
+   │ content.js extrait le contenu           │
+   │              ↓                           │
+   │ background.js génère l'EPUB avec JSZip  │
+   └─────────────────────────────────────────┘
+
+2. STOCKAGE (Serveur)
+   ┌─────────────────────────────────────────┐
+   │ Extension envoie EPUB au serveur        │
+   │              ↓                           │
+   │ Serveur stocke dans uploads/            │
+   │              ↓                           │
+   │ Serveur met à jour metadata.json        │
+   │              ↓                           │
+   │ Confirmation envoyée à l'extension      │
+   └─────────────────────────────────────────┘
+
+3. CONSULTATION (Liseuse)
+   ┌─────────────────────────────────────────┐
+   │ Navigateur charge http://serveur:3000   │
+   │              ↓                           │
+   │ JavaScript récupère la liste des EPUB   │
+   │              ↓                           │
+   │ Affichage de l'interface web            │
+   │              ↓                           │
+   │ Téléchargement de l'EPUB choisi         │
+   │              ↓                           │
+   │ Ouverture dans l'application de lecture │
+   └─────────────────────────────────────────┘
+
+
+Technologies utilisées
+======================
+
+Extension Firefox:
+  - JavaScript ES6+
+  - WebExtensions API
+  - JSZip (génération EPUB)
+
+Serveur:
+  - Node.js
+  - Express (serveur web)
+  - Multer (upload de fichiers)
+  - CORS (accès cross-origin)
+
+Interface web:
+  - HTML5/CSS3
+  - JavaScript Vanilla
+  - Fetch API
+
+
+Fichiers générés automatiquement
+=================================
+
+❌ Ne pas commiter dans Git:
+  - lib/jszip.min.js
+  - server/node_modules/
+  - server/uploads/
+  - server/metadata.json
+  - server/.env
+
+✅ À créer lors de l'installation:
+  - Lancez ./install.sh pour tout configurer automatiquement
+
+
+Commandes utiles
+================
+
+Installation:
+  ./install.sh
+
+Vérification:
+  ./verify.sh
+
+Démarrage du serveur:
+  cd server && npm start
+
+Développement (auto-reload):
+  cd server && npm run dev
+
+Test rapide:
+  npm test
+
+
+Ports réseau
+============
+
+Par défaut:
+  - Serveur: http://localhost:3000
+  - API: http://localhost:3000/api/*
+  - Page web: http://localhost:3000/
+
+Configuration:
+  - Modifiable dans server/.env
+  - PORT=3000
+
+
+Taille approximative
+====================
+
+Extension (sans lib):
+  - manifest.json: ~0.5 KB
+  - background.js: ~5 KB
+  - content.js: ~8 KB
+  - options.*: ~2 KB
+  Total: ~15 KB
+
+Extension (avec JSZip):
+  - jszip.min.js: ~100 KB
+  Total: ~115 KB
+
+Serveur:
+  - server.js: ~6 KB
+  - index.html: ~8 KB
+  - node_modules: ~20 MB
+  Total: ~20 MB
+
+EPUB généré:
+  - Taille moyenne: 50-200 KB par article

@@ -1,0 +1,31 @@
+{
+  "name": "web2epub-extension",
+  "version": "1.0.0",
+  "description": "Extension Firefox pour convertir des articles web en EPUB",
+  "scripts": {
+    "install-deps": "cd server && npm install",
+    "download-jszip": "curl -o lib/jszip.min.js https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js || wget -O lib/jszip.min.js https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js",
+    "setup": "mkdir -p lib icons server/uploads && npm run download-jszip && npm run install-deps",
+    "start": "cd server && npm start",
+    "dev": "cd server && npm run dev",
+    "build": "web-ext build --overwrite-dest",
+    "test": "cd server && node server.js & sleep 2 && curl http://localhost:3000/health && pkill -f 'node server.js'"
+  },
+  "keywords": [
+    "firefox",
+    "extension",
+    "epub",
+    "web",
+    "reader",
+    "article"
+  ],
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/web2epub.git"
+  },
+  "devDependencies": {
+    "web-ext": "^7.10.0"
+  }
+}

@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Server files
+server/uploads/
+server/metadata.json
+server/.env
+
+# Extension library
+lib/jszip.min.js
+
+# Build files
+*.xpi
+*.zip
+web-ext-artifacts/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+
+# Temporary files
+*.tmp
+.cache/

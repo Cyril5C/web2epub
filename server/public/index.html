@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mes EPUB - Web2EPUB</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    header {
+      text-align: center;
+      color: white;
+      margin-bottom: 40px;
+    }
+
+    h1 {
+      font-size: 3em;
+      margin-bottom: 10px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .subtitle {
+      font-size: 1.2em;
+      opacity: 0.9;
+    }
+
+    .controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .search-box {
+      flex: 1;
+      min-width: 250px;
+    }
+
+    .search-box input {
+      width: 100%;
+      padding: 12px 20px;
+      border: none;
+      border-radius: 25px;
+      font-size: 16px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    .refresh-btn {
+      background: white;
+      color: #667eea;
+      border: none;
+      padding: 12px 30px;
+      border-radius: 25px;
+      font-size: 16px;
+      cursor: pointer;
+      font-weight: bold;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      transition: all 0.3s ease;
+    }
+
+    .refresh-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+
+    .epub-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+      margin-top: 20px;
+    }
+
+    .epub-card {
+      background: white;
+      border-radius: 15px;
+      padding: 25px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+      transition: all 0.3s ease;
+      position: relative;
+    }
+
+    .epub-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    }
+
+    .epub-icon {
+      width: 60px;
+      height: 60px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 15px;
+      font-size: 30px;
+    }
+
+    .epub-title {
+      font-size: 1.3em;
+      font-weight: bold;
+      margin-bottom: 10px;
+      color: #333;
+      line-height: 1.4;
+    }
+
+    .epub-meta {
+      color: #666;
+      font-size: 0.9em;
+      margin-bottom: 15px;
+    }
+
+    .epub-size {
+      color: #999;
+      font-size: 0.85em;
+    }
+
+    .epub-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: bold;
+      transition: all 0.3s ease;
+      text-decoration: none;
+      text-align: center;
+      display: inline-block;
+    }
+
+    .btn-download {
+      background: #667eea;
+      color: white;
+    }
+
+    .btn-download:hover {
+      background: #5568d3;
+    }
+
+    .btn-delete {
+      background: #f56565;
+      color: white;
+    }
+
+    .btn-delete:hover {
+      background: #e53e3e;
+    }
+
+    .empty-state {
+      text-align: center;
+      color: white;
+      padding: 60px 20px;
+    }
+
+    .empty-state-icon {
+      font-size: 80px;
+      margin-bottom: 20px;
+      opacity: 0.7;
+    }
+
+    .empty-state h2 {
+      font-size: 2em;
+      margin-bottom: 10px;
+    }
+
+    .empty-state p {
+      font-size: 1.2em;
+      opacity: 0.9;
+    }
+
+    .loading {
+      text-align: center;
+      color: white;
+      padding: 40px;
+      font-size: 1.2em;
+    }
+
+    .stats {
+      background: rgba(255, 255, 255, 0.2);
+      backdrop-filter: blur(10px);
+      border-radius: 15px;
+      padding: 20px;
+      margin-bottom: 30px;
+      color: white;
+      display: flex;
+      justify-content: space-around;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+
+    .stat-item {
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 2.5em;
+      font-weight: bold;
+      display: block;
+    }
+
+    .stat-label {
+      font-size: 0.9em;
+      opacity: 0.9;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    @media (max-width: 768px) {
+      h1 {
+        font-size: 2em;
+      }
+
+      .epub-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>📚 Mes EPUB</h1>
+      <p class="subtitle">Votre bibliothèque personnelle</p>
+    </header>
+
+    <div class="stats" id="stats" style="display: none;">
+      <div class="stat-item">
+        <span class="stat-value" id="totalCount">0</span>
+        <span class="stat-label">Articles</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-value" id="totalSize">0 MB</span>
+        <span class="stat-label">Espace utilisé</span>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="🔍 Rechercher un article...">
+      </div>
+      <button class="refresh-btn" onclick="loadEpubs()">🔄 Actualiser</button>
+    </div>
+
+    <div id="content">
+      <div class="loading">Chargement des EPUB...</div>
+    </div>
+  </div>
+
+  <script>
+    let allEpubs = [];
+
+    // Load EPUBs on page load
+    document.addEventListener('DOMContentLoaded', () => {
+      loadEpubs();
+
+      // Setup search
+      document.getElementById('searchInput').addEventListener('input', (e) => {
+        filterEpubs(e.target.value);
+      });
+    });
+
+    async function loadEpubs() {
+      try {
+        const response = await fetch('/api/epubs');
+        if (!response.ok) throw new Error('Erreur de chargement');
+
+        allEpubs = await response.json();
+        displayEpubs(allEpubs);
+        updateStats(allEpubs);
+      } catch (error) {
+        console.error('Error loading EPUBs:', error);
+        document.getElementById('content').innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">❌</div>
+            <h2>Erreur de chargement</h2>
+            <p>Impossible de charger les EPUB. Vérifiez que le serveur est démarré.</p>
+          </div>
+        `;
+      }
+    }
+
+    function displayEpubs(epubs) {
+      const content = document.getElementById('content');
+
+      if (epubs.length === 0) {
+        content.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">📖</div>
+            <h2>Aucun EPUB pour le moment</h2>
+            <p>Utilisez l'extension Firefox pour sauvegarder vos premiers articles</p>
+          </div>
+        `;
+        return;
+      }
+
+      const grid = document.createElement('div');
+      grid.className = 'epub-grid';
+
+      epubs.forEach(epub => {
+        const card = createEpubCard(epub);
+        grid.appendChild(card);
+      });
+
+      content.innerHTML = '';
+      content.appendChild(grid);
+    }
+
+    function createEpubCard(epub) {
+      const card = document.createElement('div');
+      card.className = 'epub-card';
+
+      const date = new Date(epub.uploadedAt);
+      const formattedDate = date.toLocaleDateString('fr-FR', {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+
+      const sizeInMB = (epub.size / (1024 * 1024)).toFixed(2);
+
+      card.innerHTML = `
+        <div class="epub-icon">📄</div>
+        <div class="epub-title">${escapeHtml(epub.title)}</div>
+        <div class="epub-meta">${formattedDate}</div>
+        <div class="epub-size">${sizeInMB} MB</div>
+        <div class="epub-actions">
+          <a href="/api/download/${epub.id}" class="btn btn-download" download>
+            📥 Télécharger
+          </a>
+          <button class="btn btn-delete" onclick="deleteEpub('${epub.id}', '${escapeHtml(epub.title)}')">
+            🗑️ Supprimer
+          </button>
+        </div>
+      `;
+
+      return card;
+    }
+
+    function updateStats(epubs) {
+      const stats = document.getElementById('stats');
+      const totalCount = document.getElementById('totalCount');
+      const totalSize = document.getElementById('totalSize');
+
+      if (epubs.length === 0) {
+        stats.style.display = 'none';
+        return;
+      }
+
+      const totalBytes = epubs.reduce((sum, epub) => sum + epub.size, 0);
+      const totalMB = (totalBytes / (1024 * 1024)).toFixed(2);
+
+      totalCount.textContent = epubs.length;
+      totalSize.textContent = `${totalMB} MB`;
+      stats.style.display = 'flex';
+    }
+
+    function filterEpubs(query) {
+      if (!query.trim()) {
+        displayEpubs(allEpubs);
+        return;
+      }
+
+      const filtered = allEpubs.filter(epub =>
+        epub.title.toLowerCase().includes(query.toLowerCase())
+      );
+
+      displayEpubs(filtered);
+    }
+
+    async function deleteEpub(id, title) {
+      if (!confirm(`Êtes-vous sûr de vouloir supprimer "${title}" ?`)) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/epubs/${id}`, {
+          method: 'DELETE'
+        });
+
+        if (!response.ok) throw new Error('Erreur de suppression');
+
+        // Reload EPUBs
+        await loadEpubs();
+      } catch (error) {
+        console.error('Error deleting EPUB:', error);
+        alert('Erreur lors de la suppression');
+      }
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>
