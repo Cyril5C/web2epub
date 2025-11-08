@@ -22,8 +22,58 @@ browser.browserAction.onClicked.addListener(async (tab) => {
       browser.notifications.create({
         type: 'basic',
         iconUrl: browser.runtime.getURL('icons/icon-48.png'),
-        title: 'Web2EPUB',
-        message: `Article "${response.article.title}" sauvegardé en EPUB`
+        title: '✅ EPUB prêt !',
+        message: `"${response.article.title}" a été sauvegardé avec succès`
+      });
+
+      // Show alert on the page
+      browser.tabs.executeScript(tab.id, {
+        code: `
+          const alertDiv = document.createElement('div');
+          alertDiv.style.cssText = \`
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            z-index: 999999;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-size: 16px;
+            font-weight: bold;
+            animation: slideIn 0.3s ease-out;
+          \`;
+          alertDiv.innerHTML = \`
+            <div style="display: flex; align-items: center; gap: 15px;">
+              <span style="font-size: 32px;">✅</span>
+              <div>
+                <div style="font-size: 18px; margin-bottom: 5px;">EPUB prêt !</div>
+                <div style="font-size: 14px; opacity: 0.9; font-weight: normal;">Article sauvegardé avec succès</div>
+              </div>
+            </div>
+          \`;
+
+          const style = document.createElement('style');
+          style.textContent = \`
+            @keyframes slideIn {
+              from { transform: translateX(400px); opacity: 0; }
+              to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes slideOut {
+              from { transform: translateX(0); opacity: 1; }
+              to { transform: translateX(400px); opacity: 0; }
+            }
+          \`;
+          document.head.appendChild(style);
+          document.body.appendChild(alertDiv);
+
+          setTimeout(() => {
+            alertDiv.style.animation = 'slideOut 0.3s ease-out';
+            setTimeout(() => alertDiv.remove(), 300);
+          }, 4000);
+        `
       });
     } else {
       throw new Error('Impossible d\'extraire l\'article');
@@ -33,8 +83,61 @@ browser.browserAction.onClicked.addListener(async (tab) => {
     browser.notifications.create({
       type: 'basic',
       iconUrl: browser.runtime.getURL('icons/icon-48.png'),
-      title: 'Web2EPUB - Erreur',
+      title: '❌ Erreur',
       message: error.message
+    });
+
+    // Show error alert on the page
+    browser.tabs.executeScript(tab.id, {
+      code: `
+        const alertDiv = document.createElement('div');
+        alertDiv.style.cssText = \`
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+          color: white;
+          padding: 20px 30px;
+          border-radius: 10px;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+          z-index: 999999;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+          font-size: 16px;
+          font-weight: bold;
+          animation: slideIn 0.3s ease-out;
+        \`;
+        alertDiv.innerHTML = \`
+          <div style="display: flex; align-items: center; gap: 15px;">
+            <span style="font-size: 32px;">❌</span>
+            <div>
+              <div style="font-size: 18px; margin-bottom: 5px;">Erreur</div>
+              <div style="font-size: 14px; opacity: 0.9; font-weight: normal;">${error.message}</div>
+            </div>
+          </div>
+        \`;
+
+        const style = document.createElement('style');
+        style.textContent = \`
+          @keyframes slideIn {
+            from { transform: translateX(400px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+          }
+          @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(400px); opacity: 0; }
+          }
+        \`;
+        document.head.appendChild(style);
+        document.body.appendChild(alertDiv);
+
+        setTimeout(() => {
+          alertDiv.style.animation = 'slideOut 0.3s ease-out';
+          setTimeout(() => alertDiv.remove(), 300);
+        }, 5000);
+      `
+    }).catch(() => {
+      // Si on ne peut pas injecter le script, tant pis
+      console.log('Could not inject alert script');
     });
   }
 });
