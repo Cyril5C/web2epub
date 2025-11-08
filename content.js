@@ -2,7 +2,7 @@
 console.log('Web2EPUB content script loaded');
 
 // Listen for messages from background script
-browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
+browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.action === 'extractArticle') {
     try {
       const article = extractArticle();
@@ -167,26 +167,10 @@ function extractGeneric() {
     }
   }
 
-  // Try to find main content using Readability-style logic
-  const contentSelectors = [
-    'article',
-    'main',
-    '.article-content',
-    '.post-content',
-    '.entry-content',
-    '#content',
-    '.content'
-  ];
+  // Try to find main content using layered heuristics
+  let contentEl = selectBestContentElement();
 
-  let contentEl = null;
-  for (const selector of contentSelectors) {
-    contentEl = document.querySelector(selector);
-    if (contentEl && contentEl.textContent.trim().length > 200) {
-      break;
-    }
-  }
-
-  // Fallback: find the element with the most paragraph text
+  // Last resort: fall back to previous paragraph-density approach
   if (!contentEl || contentEl.textContent.trim().length < 200) {
     contentEl = findMainContent();
   }
@@ -262,21 +246,186 @@ function cleanContent(element) {
 
   const images = tempDiv.querySelectorAll('img');
   images.forEach(img => {
-    if (img.src) {
-      img.src = new URL(img.src, window.location.href).href;
+    const originalSrc =
+      img.getAttribute('src') ||
+      img.getAttribute('data-src') ||
+      img.getAttribute('data-original') ||
+      img.getAttribute('data-lazy-src');
+
+    if (originalSrc) {
+      img.setAttribute('src', resolveUrl(originalSrc));
     }
-    // Remove lazy loading attributes
+
+    // Remove lazy loading attributes and srcset which often breaks EPUB readers
     img.removeAttribute('loading');
     img.removeAttribute('data-src');
+    img.removeAttribute('data-original');
+    img.removeAttribute('data-lazy-src');
+    img.removeAttribute('srcset');
+    img.removeAttribute('sizes');
   });
 
   // Ensure links have absolute URLs
   const links = tempDiv.querySelectorAll('a');
   links.forEach(link => {
-    if (link.href) {
-      link.href = new URL(link.href, window.location.href).href;
+    const href = link.getAttribute('href');
+    if (href) {
+      link.setAttribute('href', resolveUrl(href));
     }
   });
 
   return tempDiv.innerHTML;
+}
+
+function resolveUrl(url) {
+  try {
+    return new URL(url, window.location.href).href;
+  } catch (e) {
+    return url;
+  }
+}
+// Choose the most plausible article container using multiple signals
+function selectBestContentElement() {
+  const prioritySelectors = [
+    '[itemprop="articleBody"]',
+    '[role="main"] article',
+    'article',
+    'main article',
+    '.article-body',
+    '.article__content',
+    '.article-content',
+    '.post-content',
+    '.post__content',
+    '.entry-content',
+    '.story-body',
+    '.content__article-body',
+    '#articleBody',
+    '#main-content'
+  ];
+
+  for (const selector of prioritySelectors) {
+    const candidate = document.querySelector(selector);
+    if (isValidContentCandidate(candidate)) {
+      return candidate;
+    }
+  }
+
+  const structuralSelectors = ['article', 'section', 'div', 'main'];
+  const structuralCandidates = [];
+
+  structuralSelectors.forEach(selector => {
+    structuralCandidates.push(
+      ...Array.from(document.body.querySelectorAll(selector))
+        .filter(isValidContentCandidate)
+        .map(element => ({
+          element,
+          score: scoreContentCandidate(element)
+        }))
+    );
+  });
+
+  structuralCandidates.sort((a, b) => b.score - a.score);
+  return structuralCandidates.length ? structuralCandidates[0].element : null;
+}
+
+function isValidContentCandidate(element) {
+  if (!element) return false;
+
+  const text = element.textContent || '';
+  if (text.trim().length < 400) return false;
+
+  if (element.closest('header, footer, nav, aside, form, [role="banner"], [role="contentinfo"]')) {
+    return false;
+  }
+
+  const className = typeof element.className === 'string' ? element.className : '';
+  const classAndId = `${className} ${element.id || ''}`.toLowerCase();
+  if (/(comment|promo|related|footer|header|sidebar|subscribe|share|widget)/.test(classAndId)) {
+    return false;
+  }
+
+  return true;
+}
+
+function scoreContentCandidate(element) {
+  const textLength = element.textContent.trim().length;
+  const paragraphCount = element.querySelectorAll('p').length;
+  const headingCount = element.querySelectorAll('h1, h2').length;
+  const mediaCount = element.querySelectorAll('img, figure, video').length;
+  const linkDensity = getLinkDensity(element);
+
+  let score = textLength * 0.9 + paragraphCount * 120 + headingCount * 40 + mediaCount * 20;
+  score += weightFromClassAndId(element);
+
+  if (linkDensity > 0.5) {
+    score *= 0.5;
+  } else if (linkDensity > 0.25) {
+    score *= 0.8;
+  }
+
+  return score;
+}
+
+function getLinkDensity(element) {
+  const textLength = element.textContent.trim().length || 1;
+  const linkLength = Array.from(element.querySelectorAll('a'))
+    .map(a => a.textContent.trim().length)
+    .reduce((sum, len) => sum + len, 0);
+  return linkLength / textLength;
+}
+
+function weightFromClassAndId(element) {
+  const className = typeof element.className === 'string' ? element.className : '';
+  const classAndId = `${className} ${element.id || ''}`.toLowerCase();
+
+  const positiveMatches = [
+    'article',
+    'body',
+    'content',
+    'entry',
+    'main',
+    'post',
+    'story',
+    'text'
+  ];
+
+  const negativeMatches = [
+    'ad',
+    'aside',
+    'comment',
+    'combx',
+    'contact',
+    'foot',
+    'footer',
+    'form',
+    'header',
+    'menu',
+    'nav',
+    'promo',
+    'related',
+    'scroll',
+    'share',
+    'shopping',
+    'sidebar',
+    'sponsor',
+    'subscribe',
+    'tool',
+    'widget'
+  ];
+
+  let weight = 0;
+
+  positiveMatches.forEach(match => {
+    if (classAndId.includes(match)) {
+      weight += 200;
+    }
+  });
+
+  negativeMatches.forEach(match => {
+    if (classAndId.includes(match)) {
+      weight -= 200;
+    }
+  });
+
+  return weight;
 }
