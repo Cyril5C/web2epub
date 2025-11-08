@@ -31,19 +31,20 @@ browser.browserAction.onClicked.addListener(async (tab) => {
         code: `
           const alertDiv = document.createElement('div');
           alertDiv.style.cssText = \`
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 20px 30px;
-            border-radius: 10px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-            z-index: 999999;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            font-size: 16px;
-            font-weight: bold;
-            animation: slideIn 0.3s ease-out;
+            position: fixed !important;
+            top: 20px !important;
+            right: 20px !important;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+            color: white !important;
+            padding: 20px 30px !important;
+            border-radius: 10px !important;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3) !important;
+            z-index: 2147483647 !important;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+            font-size: 16px !important;
+            font-weight: bold !important;
+            animation: slideIn 0.3s ease-out !important;
+            pointer-events: none !important;
           \`;
           alertDiv.innerHTML = \`
             <div style="display: flex; align-items: center; gap: 15px;">
@@ -92,19 +93,20 @@ browser.browserAction.onClicked.addListener(async (tab) => {
       code: `
         const alertDiv = document.createElement('div');
         alertDiv.style.cssText = \`
-          position: fixed;
-          top: 20px;
-          right: 20px;
-          background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
-          color: white;
-          padding: 20px 30px;
-          border-radius: 10px;
-          box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-          z-index: 999999;
-          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-          font-size: 16px;
-          font-weight: bold;
-          animation: slideIn 0.3s ease-out;
+          position: fixed !important;
+          top: 20px !important;
+          right: 20px !important;
+          background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%) !important;
+          color: white !important;
+          padding: 20px 30px !important;
+          border-radius: 10px !important;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.3) !important;
+          z-index: 2147483647 !important;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+          font-size: 16px !important;
+          font-weight: bold !important;
+          animation: slideIn 0.3s ease-out !important;
+          pointer-events: none !important;
         \`;
         alertDiv.innerHTML = \`
           <div style="display: flex; align-items: center; gap: 15px;">
