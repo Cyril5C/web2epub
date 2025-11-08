@@ -100,6 +100,7 @@ app.post('/upload', upload.single('epub'), (req, res) => {
       size: req.file.size,
       uploadedAt: req.body.timestamp || new Date().toISOString(),
       url: req.body.url || '',
+      domain: req.body.domain || '',
       path: req.file.path
     };
 

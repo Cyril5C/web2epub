@@ -16,7 +16,7 @@ browser.browserAction.onClicked.addListener(async (tab) => {
       const epub = await generateEPUB(response.article);
 
       // Send to server
-      await sendToServer(epub, response.article.title, response.article.url);
+      await sendToServer(epub, response.article.title, response.article.url, response.article.domain);
 
       // Show success notification
       browser.notifications.create({
@@ -296,7 +296,7 @@ ${imageManifestItems.join('\n')}
 }
 
 // Send EPUB to server
-async function sendToServer(epubBlob, title, url) {
+async function sendToServer(epubBlob, title, url, domain) {
   const settings = await browser.storage.sync.get({
     serverUrl: 'https://web2epub-production.up.railway.app'
   });
@@ -307,6 +307,7 @@ async function sendToServer(epubBlob, title, url) {
   formData.append('title', title);
   formData.append('timestamp', new Date().toISOString());
   formData.append('url', url || '');
+  formData.append('domain', domain || '');
 
   const response = await fetch(`${settings.serverUrl}/upload`, {
     method: 'POST',
