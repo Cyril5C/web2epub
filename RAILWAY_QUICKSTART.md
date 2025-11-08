@@ -30,6 +30,8 @@ Attendez 1-2 minutes que le build se termine ✅
 4. Cliquez sur **"Add"**
 5. Railway redémarre automatiquement
 
+📖 **Guide détaillé avec captures** : [RAILWAY_VOLUME_SETUP.md](RAILWAY_VOLUME_SETUP.md)
+
 ### 4️⃣ Obtenir l'URL publique (30 sec)
 
 1. Dans **"Settings"** → **"Networking"**
