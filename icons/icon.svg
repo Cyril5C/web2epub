@@ -1,11 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <defs>
-    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
-    </linearGradient>
-  </defs>
-  <rect width="100" height="100" fill="url(#grad)" rx="15"/>
+  <rect width="100" height="100" fill="#667eea" rx="15"/>
   <path d="M25 30 h50 v5 h-50 z M25 45 h50 v5 h-50 z M25 60 h35 v5 h-35 z" fill="white"/>
   <circle cx="75" cy="75" r="15" fill="#764ba2"/>
   <path d="M75 68 v14 M68 75 h14" stroke="white" stroke-width="3" stroke-linecap="round"/>

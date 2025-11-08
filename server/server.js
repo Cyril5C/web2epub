@@ -6,6 +6,7 @@ const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const HOST = process.env.HOST || '127.0.0.1';
 
 // Railway persistent storage: use /data if available, otherwise local
 const STORAGE_ROOT = process.env.RAILWAY_VOLUME_MOUNT_PATH || __dirname;
@@ -186,7 +187,7 @@ app.get('/health', (req, res) => {
 });
 
 // Start server
-app.listen(PORT, () => {
-  console.log(`Web2EPUB server running on http://localhost:${PORT}`);
+app.listen(PORT, HOST, () => {
+  console.log(`Web2EPUB server running on http://${HOST}:${PORT}`);
   console.log(`Uploads directory: ${UPLOADS_DIR}`);
 });
