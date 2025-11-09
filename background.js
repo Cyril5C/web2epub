@@ -461,11 +461,11 @@ async function generateMultiArticleEPUB(draft) {
     body {
       margin: 0;
       padding: 0;
-      text-align: center;
     }
     img {
-      max-width: 100%;
-      max-height: 100%;
+      width: 100% !important;
+      height: auto;
+      display: block;
     }
   </style>
 </head>
@@ -1108,8 +1108,8 @@ async function createMosaicCover(imagesFolder, imageCount) {
       const x = col * cellWidth;
       const y = row * cellHeight;
 
-      // Calculate scaling to cover cell while maintaining aspect ratio
-      const scale = Math.max(cellWidth / img.width, cellHeight / img.height);
+      // Calculate scaling to fit image inside cell (contain mode)
+      const scale = Math.min(cellWidth / img.width, cellHeight / img.height);
       const scaledWidth = img.width * scale;
       const scaledHeight = img.height * scale;
 
