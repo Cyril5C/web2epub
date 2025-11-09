@@ -397,6 +397,12 @@ async function generateMultiArticleEPUB(draft) {
     const cleanedContent = cleanHtmlEntities(contentWithImages);
     const xhtmlSafeContent = enforceXhtmlVoidElements(cleanedContent);
 
+    // Debug: Check final XHTML image tags
+    const xhtmlImageMatches = xhtmlSafeContent.match(/<img[^>]*>/gi);
+    if (xhtmlImageMatches) {
+      console.log(`  → Final XHTML img tags (${xhtmlImageMatches.length}):`, xhtmlImageMatches.slice(0, 2));
+    }
+
     processedArticles.push({
       ...article,
       processedContent: xhtmlSafeContent,
