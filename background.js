@@ -343,6 +343,8 @@ async function generateMultiArticleEPUB(draft) {
     tempDiv.innerHTML = article.content;
     const imgElements = tempDiv.querySelectorAll('img');
 
+    console.log(`Processing article ${articleIndex + 1}: "${article.title}" - Found ${imgElements.length} images`);
+
     for (let i = 0; i < imgElements.length; i++) {
       const img = imgElements[i];
       const src = img.getAttribute('src');
@@ -351,6 +353,8 @@ async function generateMultiArticleEPUB(draft) {
         try {
           // Convert relative URLs to absolute
           const imageUrl = new URL(src, article.url || window.location.href).href;
+
+          console.log(`  Downloading image ${i + 1}/${imgElements.length}: ${imageUrl}`);
 
           // Download image
           const response = await fetch(imageUrl);
@@ -368,10 +372,12 @@ async function generateMultiArticleEPUB(draft) {
           // Update img src in content
           img.setAttribute('src', `images/${filename}`);
 
+          console.log(`  ✓ Image saved as ${filename} (${mimeType})`);
+
           // Track for manifest
           imageManifestItems.push(`    <item id="img_${globalImageCounter}" href="images/${filename}" media-type="${mimeType}"/>`);
         } catch (error) {
-          console.warn(`Failed to download image: ${src}`, error);
+          console.warn(`  ✗ Failed to download image: ${src}`, error);
           // Remove broken image from content
           img.remove();
         }
