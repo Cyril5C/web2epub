@@ -6,6 +6,7 @@ const fs = require('fs');
 const basicAuth = require('express-basic-auth');
 const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
+const session = require('express-session');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -105,15 +106,57 @@ const webAuth = basicAuth({
 app.use(cors());
 app.use(express.json());
 
-// Protected public directory and API endpoints
-app.use('/api', apiLimiter, webAuth);
+// Session middleware
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'web2epub-session-secret-change-me',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    httpOnly: true,
+    secure: false // Set to true in production with HTTPS
+  }
+}));
 
-// Serve index.html with authentication
-app.get('/', webAuth, (_req, res) => {
+// Session auth middleware
+function requireAuth(req, res, next) {
+  if (req.session && req.session.authenticated) {
+    next();
+  } else {
+    res.redirect('/login.html');
+  }
+}
+
+// Login endpoint
+app.post('/api/login', (req, res) => {
+  const { username, password } = req.body;
+
+  if (username === WEB_USERNAME && password === WEB_PASSWORD) {
+    req.session.authenticated = true;
+    res.json({ success: true });
+  } else {
+    res.status(401).json({ error: 'Invalid credentials' });
+  }
+});
+
+// Logout endpoint
+app.get('/api/logout', (req, res) => {
+  req.session.destroy();
+  res.redirect('/login.html');
+});
+
+// Serve login page without authentication
+app.use('/login.html', express.static(path.join(__dirname, 'public', 'login.html')));
+
+// Protected API endpoints (keep API key auth for extension uploads)
+app.use('/api/epubs', apiLimiter, requireAuth);
+
+// Serve index.html with session authentication
+app.get('/', requireAuth, (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Serve other static files without authentication
+// Serve other static files without authentication for assets
 app.use(express.static('public'));
 
 // Helper functions
@@ -185,7 +228,7 @@ app.get('/api/epubs', (req, res) => {
 });
 
 // Download EPUB
-app.get('/api/download/:id', (req, res) => {
+app.get('/api/download/:id', requireAuth, (req, res) => {
   try {
     const metadata = readMetadata();
     const entry = metadata.find(e => e.id === req.params.id);
@@ -208,7 +251,7 @@ app.get('/api/download/:id', (req, res) => {
 });
 
 // Delete EPUB
-app.delete('/api/epubs/:id', (req, res) => {
+app.delete('/api/epubs/:id', requireAuth, (req, res) => {
   try {
     const metadata = readMetadata();
     const index = metadata.findIndex(e => e.id === req.params.id);
