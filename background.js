@@ -439,7 +439,7 @@ async function generateMultiArticleEPUB(draft) {
   let hasCover = false;
   if (globalImageCounter > 0) {
     try {
-      const coverBlob = await createMosaicCover(imagesFolder, globalImageCounter);
+      const coverBlob = await createMosaicCover(imagesFolder, globalImageCounter, draft.articles);
       imagesFolder.file('cover.jpg', coverBlob);
       imageManifestItems.push('    <item id="cover-image" href="images/cover.jpg" media-type="image/jpeg"/>');
       hasCover = true;
@@ -1055,7 +1055,7 @@ function enforceXhtmlVoidElements(html) {
 }
 
 // Create mosaic cover image from downloaded images
-async function createMosaicCover(imagesFolder, imageCount) {
+async function createMosaicCover(imagesFolder, imageCount, articles) {
   // Portrait cover size
   const coverWidth = 600;
   const coverHeight = 800;
@@ -1123,16 +1123,65 @@ async function createMosaicCover(imagesFolder, imageCount) {
     }
   }
 
+  // Extract unique sources from articles
+  var uniqueDomains = {};
+  for (var i = 0; i < articles.length; i++) {
+    var domain = articles[i].domain || '';
+    if (domain) {
+      uniqueDomains[domain] = true;
+    }
+  }
+
+  // Map domains to readable names
+  var domainNames = {
+    'lemonde.fr': 'Le Monde',
+    'mediapart.fr': 'Mediapart',
+    'liberation.fr': 'Libération',
+    'lefigaro.fr': 'Le Figaro',
+    'leparisien.fr': 'Le Parisien',
+    'francetvinfo.fr': 'France Info',
+    'lexpress.fr': 'L\'Express',
+    'nouvelobs.com': 'L\'Obs',
+    'slate.fr': 'Slate',
+    'huffingtonpost.fr': 'HuffPost',
+    'courrierinternational.com': 'Courrier International',
+    'lemediatv.fr': 'Le Média',
+    'regards.fr': 'Regards'
+  };
+
+  var sourcesList = [];
+  for (var domain in uniqueDomains) {
+    if (uniqueDomains.hasOwnProperty(domain)) {
+      var sourceName = domainNames[domain] || domain.replace(/^www\./, '').split('.')[0];
+      sourcesList.push(sourceName);
+    }
+  }
+
+  // Generate French date with capitalized day
+  var now = new Date();
+  var dayNames = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+  var monthNames = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+
+  var dayName = dayNames[now.getDay()];
+  var day = now.getDate();
+  var monthName = monthNames[now.getMonth()];
+  var year = now.getFullYear();
+
+  var frenchDate = dayName + ' ' + day + ' ' + monthName + ' ' + year;
+
+  // Create overlay text - just the source names
+  var sourcesText = sourcesList.length > 0 ? sourcesList.join(', ') : 'Articles';
+
   // Add title overlay
   ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
   ctx.fillRect(0, coverHeight - 100, coverWidth, 100);
 
   ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 24px Arial';
+  ctx.font = 'bold 20px Arial';
   ctx.textAlign = 'center';
-  ctx.fillText('Compilation', coverWidth / 2, coverHeight - 60);
+  ctx.fillText(sourcesText, coverWidth / 2, coverHeight - 60);
   ctx.font = '18px Arial';
-  ctx.fillText(`${imageCount} images`, coverWidth / 2, coverHeight - 30);
+  ctx.fillText(frenchDate, coverWidth / 2, coverHeight - 30);
 
   // Convert canvas to blob
   return new Promise((resolve) => {
