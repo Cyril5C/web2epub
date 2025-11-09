@@ -347,18 +347,33 @@ async function generateMultiArticleEPUB(draft) {
 
     for (let i = 0; i < imgElements.length; i++) {
       const img = imgElements[i];
-      const src = img.getAttribute('src');
+      let src = img.getAttribute('src');
 
-      if (src) {
+      // Check for lazy-loaded images
+      if (!src || src.startsWith('data:')) {
+        src = img.getAttribute('data-src') || img.getAttribute('data-lazy-src') || img.getAttribute('data-original');
+      }
+
+      if (src && !src.startsWith('data:')) {
         try {
           // Convert relative URLs to absolute
           const imageUrl = new URL(src, article.url || window.location.href).href;
 
-          console.log(`  Downloading image ${i + 1}/${imgElements.length}: ${imageUrl}`);
+          console.log(`  [${i + 1}/${imgElements.length}] Downloading: ${imageUrl}`);
 
           // Download image
           const response = await fetch(imageUrl);
+
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status} ${response.statusText}`);
+          }
+
           const blob = await response.blob();
+
+          // Validate blob size
+          if (blob.size === 0) {
+            throw new Error('Empty image (0 bytes)');
+          }
 
           // Determine image format and extension
           const mimeType = blob.type || 'image/jpeg';
@@ -372,12 +387,13 @@ async function generateMultiArticleEPUB(draft) {
           // Update img src in content
           img.setAttribute('src', `images/${filename}`);
 
-          console.log(`  ✓ Image saved as ${filename} (${mimeType})`);
+          console.log(`  ✓ [${i + 1}/${imgElements.length}] Saved as ${filename} (${mimeType}, ${(blob.size / 1024).toFixed(1)}KB)`);
 
           // Track for manifest
           imageManifestItems.push(`    <item id="img_${globalImageCounter}" href="images/${filename}" media-type="${mimeType}"/>`);
         } catch (error) {
-          console.warn(`  ✗ Failed to download image: ${src}`, error);
+          console.error(`  ✗ [${i + 1}/${imgElements.length}] Failed: ${src}`);
+          console.error(`     Reason: ${error.message}`);
           // Remove the entire parent element to avoid empty spaces
           const parent = img.parentElement;
           if (parent && parent.tagName !== 'BODY' && parent !== tempDiv) {
@@ -386,6 +402,9 @@ async function generateMultiArticleEPUB(draft) {
             img.remove();
           }
         }
+      } else {
+        console.warn(`  ⊘ [${i + 1}/${imgElements.length}] Skipped (no valid src): ${img.outerHTML.substring(0, 100)}`);
+        img.remove();
       }
     }
 
