@@ -325,6 +325,12 @@ async function generateMultiArticleEPUB(draft) {
 </container>`);
 
   const oebps = zip.folder('OEBPS');
+  const imagesFolder = oebps.folder('images');
+
+  // Track all images and their manifest items
+  const allImages = [];
+  const imageManifestItems = [];
+  let globalImageCounter = 0;
 
   // Process all articles
   const processedArticles = [];
@@ -332,9 +338,51 @@ async function generateMultiArticleEPUB(draft) {
   for (let articleIndex = 0; articleIndex < draft.articles.length; articleIndex++) {
     const article = draft.articles[articleIndex];
 
-    // Process content - images are already embedded with absolute URLs from when article was extracted
-    // Just use the content as-is since it was already processed during extraction
-    const cleanedContent = cleanHtmlEntities(article.content);
+    // Download and embed images for this article
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = article.content;
+    const imgElements = tempDiv.querySelectorAll('img');
+
+    for (let i = 0; i < imgElements.length; i++) {
+      const img = imgElements[i];
+      const src = img.getAttribute('src');
+
+      if (src) {
+        try {
+          // Convert relative URLs to absolute
+          const imageUrl = new URL(src, article.url || window.location.href).href;
+
+          // Download image
+          const response = await fetch(imageUrl);
+          const blob = await response.blob();
+
+          // Determine image format and extension
+          const mimeType = blob.type || 'image/jpeg';
+          const ext = mimeType.split('/')[1] || 'jpg';
+          globalImageCounter++;
+          const filename = `image_${globalImageCounter}.${ext}`;
+
+          // Add image to EPUB
+          imagesFolder.file(filename, blob);
+
+          // Update img src in content
+          img.setAttribute('src', `images/${filename}`);
+
+          // Track for manifest
+          imageManifestItems.push(`    <item id="img_${globalImageCounter}" href="images/${filename}" media-type="${mimeType}"/>`);
+        } catch (error) {
+          console.warn(`Failed to download image: ${src}`, error);
+          // Remove broken image from content
+          img.remove();
+        }
+      }
+    }
+
+    // Get updated content with corrected image paths
+    let contentWithImages = tempDiv.innerHTML;
+
+    // Process content
+    const cleanedContent = cleanHtmlEntities(contentWithImages);
     const xhtmlSafeContent = enforceXhtmlVoidElements(cleanedContent);
 
     processedArticles.push({
@@ -420,6 +468,7 @@ async function generateMultiArticleEPUB(draft) {
   <manifest>
     <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
 ${manifestItems.join('\n')}
+${imageManifestItems.join('\n')}
   </manifest>
   <spine toc="ncx">
 ${spineItems.join('\n')}
