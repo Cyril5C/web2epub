@@ -387,6 +387,12 @@ async function generateMultiArticleEPUB(draft) {
     // Get updated content with corrected image paths
     let contentWithImages = tempDiv.innerHTML;
 
+    // Debug: Check if image paths are in the content
+    const imagePathMatches = contentWithImages.match(/src="images\/[^"]+"/g);
+    if (imagePathMatches) {
+      console.log(`  → Found ${imagePathMatches.length} image references in HTML:`, imagePathMatches);
+    }
+
     // Process content
     const cleanedContent = cleanHtmlEntities(contentWithImages);
     const xhtmlSafeContent = enforceXhtmlVoidElements(cleanedContent);
