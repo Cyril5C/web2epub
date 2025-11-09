@@ -1,148 +1,456 @@
 // Extension background script
 console.log('Web2EPUB extension loaded');
 
-// Handle browser action click
-browser.browserAction.onClicked.addListener(async (tab) => {
-  try {
-    // Send message to content script to extract article
-    const response = await browser.tabs.sendMessage(tab.id, {
-      action: 'extractArticle'
-    });
+// ===== DRAFT EPUB MANAGEMENT =====
 
-    if (response && response.article) {
-      console.log('Article extracted:', response.article.title);
+// Get current draft from storage
+async function getDraftEpub() {
+  const result = await browser.storage.local.get('draftEpub');
+  return result.draftEpub || null;
+}
 
-      // Generate EPUB
-      const epub = await generateEPUB(response.article);
+// Save draft to storage
+async function saveDraftEpub(draft) {
+  await browser.storage.local.set({ draftEpub: draft });
+}
 
-      // Send to server
-      await sendToServer(epub, response.article.title, response.article.url, response.article.domain);
+// Clear draft from storage
+async function clearDraftEpub() {
+  await browser.storage.local.remove('draftEpub');
+}
 
-      // Show success notification
+// Add article to draft
+async function addArticleToDraft(article) {
+  let draft = await getDraftEpub();
+
+  if (!draft) {
+    // Create new draft
+    draft = {
+      articles: [],
+      createdAt: new Date().toISOString()
+    };
+  }
+
+  // Add article to draft
+  draft.articles.push({
+    title: article.title,
+    author: article.author,
+    date: article.date,
+    content: article.content,
+    url: article.url,
+    domain: article.domain,
+    addedAt: new Date().toISOString()
+  });
+
+  await saveDraftEpub(draft);
+  return draft;
+}
+
+// Get article count in draft
+async function getDraftArticleCount() {
+  const draft = await getDraftEpub();
+  return draft ? draft.articles.length : 0;
+}
+
+// Create context menu
+browser.runtime.onInstalled.addListener(() => {
+  browser.contextMenus.create({
+    id: 'add-to-epub',
+    title: 'Ajouter à la compilation EPUB',
+    contexts: ['page']
+  });
+});
+
+// Handle context menu click
+browser.contextMenus.onClicked.addListener(async (info, tab) => {
+  if (info.menuItemId === 'add-to-epub') {
+    try {
+      // Extract article
+      const response = await browser.tabs.sendMessage(tab.id, {
+        action: 'extractArticle'
+      });
+
+      if (response && response.article) {
+        // Add to draft
+        const draft = await addArticleToDraft(response.article);
+
+        // Show success notification
+        browser.notifications.create({
+          type: 'basic',
+          iconUrl: browser.runtime.getURL('icons/icon-48.png'),
+          title: '✅ Article ajouté',
+          message: `"${response.article.title}" ajouté à la compilation (${draft.articles.length} article(s))`
+        });
+
+        // Show alert on page
+        browser.tabs.executeScript(tab.id, {
+          code: `
+            const alertDiv = document.createElement('div');
+            alertDiv.style.cssText = \`
+              position: fixed !important;
+              top: 20px !important;
+              right: 20px !important;
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+              color: white !important;
+              padding: 20px 30px !important;
+              border-radius: 10px !important;
+              box-shadow: 0 4px 20px rgba(0,0,0,0.3) !important;
+              z-index: 2147483647 !important;
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+              font-size: 16px !important;
+              font-weight: bold !important;
+              animation: slideIn 0.3s ease-out !important;
+              pointer-events: none !important;
+            \`;
+            alertDiv.innerHTML = \`
+              <div style="display: flex; align-items: center; gap: 15px;">
+                <span style="font-size: 32px;">✅</span>
+                <div>
+                  <div style="font-size: 18px; margin-bottom: 5px;">Article ajouté</div>
+                  <div style="font-size: 14px; opacity: 0.9; font-weight: normal;">${draft.articles.length} article(s) dans la compilation</div>
+                </div>
+              </div>
+            \`;
+
+            const style = document.createElement('style');
+            style.textContent = \`
+              @keyframes slideIn {
+                from { transform: translateX(400px); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+              }
+              @keyframes slideOut {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(400px); opacity: 0; }
+              }
+            \`;
+            document.head.appendChild(style);
+            document.body.appendChild(alertDiv);
+
+            setTimeout(() => {
+              alertDiv.style.animation = 'slideOut 0.3s ease-out';
+              setTimeout(() => alertDiv.remove(), 300);
+            }, 3000);
+          `
+        });
+      }
+    } catch (error) {
+      console.error('Error adding to draft:', error);
       browser.notifications.create({
         type: 'basic',
         iconUrl: browser.runtime.getURL('icons/icon-48.png'),
-        title: '✅ EPUB prêt !',
-        message: `"${response.article.title}" a été sauvegardé avec succès`
+        title: '❌ Erreur',
+        message: error.message
       });
-
-      // Show alert on the page
-      browser.tabs.executeScript(tab.id, {
-        code: `
-          const alertDiv = document.createElement('div');
-          alertDiv.style.cssText = \`
-            position: fixed !important;
-            top: 20px !important;
-            right: 20px !important;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-            color: white !important;
-            padding: 20px 30px !important;
-            border-radius: 10px !important;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.3) !important;
-            z-index: 2147483647 !important;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
-            font-size: 16px !important;
-            font-weight: bold !important;
-            animation: slideIn 0.3s ease-out !important;
-            pointer-events: none !important;
-          \`;
-          alertDiv.innerHTML = \`
-            <div style="display: flex; align-items: center; gap: 15px;">
-              <span style="font-size: 32px;">✅</span>
-              <div>
-                <div style="font-size: 18px; margin-bottom: 5px;">EPUB prêt !</div>
-                <div style="font-size: 14px; opacity: 0.9; font-weight: normal;">Article sauvegardé avec succès</div>
-              </div>
-            </div>
-          \`;
-
-          const style = document.createElement('style');
-          style.textContent = \`
-            @keyframes slideIn {
-              from { transform: translateX(400px); opacity: 0; }
-              to { transform: translateX(0); opacity: 1; }
-            }
-            @keyframes slideOut {
-              from { transform: translateX(0); opacity: 1; }
-              to { transform: translateX(400px); opacity: 0; }
-            }
-          \`;
-          document.head.appendChild(style);
-          document.body.appendChild(alertDiv);
-
-          setTimeout(() => {
-            alertDiv.style.animation = 'slideOut 0.3s ease-out';
-            setTimeout(() => alertDiv.remove(), 300);
-          }, 4000);
-        `
-      });
-    } else {
-      throw new Error('Impossible d\'extraire l\'article');
     }
-  } catch (error) {
-    console.error('Error:', error);
-    browser.notifications.create({
-      type: 'basic',
-      iconUrl: browser.runtime.getURL('icons/icon-48.png'),
-      title: '❌ Erreur',
-      message: error.message
-    });
-
-    // Show error alert on the page
-    browser.tabs.executeScript(tab.id, {
-      code: `
-        const alertDiv = document.createElement('div');
-        alertDiv.style.cssText = \`
-          position: fixed !important;
-          top: 20px !important;
-          right: 20px !important;
-          background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%) !important;
-          color: white !important;
-          padding: 20px 30px !important;
-          border-radius: 10px !important;
-          box-shadow: 0 4px 20px rgba(0,0,0,0.3) !important;
-          z-index: 2147483647 !important;
-          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
-          font-size: 16px !important;
-          font-weight: bold !important;
-          animation: slideIn 0.3s ease-out !important;
-          pointer-events: none !important;
-        \`;
-        alertDiv.innerHTML = \`
-          <div style="display: flex; align-items: center; gap: 15px;">
-            <span style="font-size: 32px;">❌</span>
-            <div>
-              <div style="font-size: 18px; margin-bottom: 5px;">Erreur</div>
-              <div style="font-size: 14px; opacity: 0.9; font-weight: normal;">${error.message}</div>
-            </div>
-          </div>
-        \`;
-
-        const style = document.createElement('style');
-        style.textContent = \`
-          @keyframes slideIn {
-            from { transform: translateX(400px); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-          }
-          @keyframes slideOut {
-            from { transform: translateX(0); opacity: 1; }
-            to { transform: translateX(400px); opacity: 0; }
-          }
-        \`;
-        document.head.appendChild(style);
-        document.body.appendChild(alertDiv);
-
-        setTimeout(() => {
-          alertDiv.style.animation = 'slideOut 0.3s ease-out';
-          setTimeout(() => alertDiv.remove(), 300);
-        }, 5000);
-      `
-    }).catch(() => {
-      // Si on ne peut pas injecter le script, tant pis
-      console.log('Could not inject alert script');
-    });
   }
 });
+
+// Handle keyboard command (Ctrl+Shift+E / Command+Shift+E)
+browser.commands.onCommand.addListener(async (command) => {
+  if (command === 'add-and-show') {
+    const tabs = await browser.tabs.query({ active: true, currentWindow: true });
+    const tab = tabs[0];
+
+    try {
+      // Extract article
+      const response = await browser.tabs.sendMessage(tab.id, {
+        action: 'extractArticle'
+      });
+
+      if (response && response.article) {
+        // Add to draft
+        const draft = await addArticleToDraft(response.article);
+
+        // Show success notification
+        browser.notifications.create({
+          type: 'basic',
+          iconUrl: browser.runtime.getURL('icons/icon-48.png'),
+          title: '✅ Article ajouté',
+          message: `"${response.article.title}" ajouté à la compilation (${draft.articles.length} article(s))`
+        });
+
+        // Show alert on page
+        browser.tabs.executeScript(tab.id, {
+          code: `
+            const alertDiv = document.createElement('div');
+            alertDiv.style.cssText = \`
+              position: fixed !important;
+              top: 20px !important;
+              right: 20px !important;
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+              color: white !important;
+              padding: 20px 30px !important;
+              border-radius: 10px !important;
+              box-shadow: 0 4px 20px rgba(0,0,0,0.3) !important;
+              z-index: 2147483647 !important;
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+              font-size: 16px !important;
+              font-weight: bold !important;
+              animation: slideIn 0.3s ease-out !important;
+              pointer-events: none !important;
+            \`;
+            alertDiv.innerHTML = \`
+              <div style="display: flex; align-items: center; gap: 15px;">
+                <span style="font-size: 32px;">✅</span>
+                <div>
+                  <div style="font-size: 18px; margin-bottom: 5px;">Article ajouté</div>
+                  <div style="font-size: 14px; opacity: 0.9; font-weight: normal;">${draft.articles.length} article(s) dans la compilation</div>
+                </div>
+              </div>
+            \`;
+
+            const style = document.createElement('style');
+            style.textContent = \`
+              @keyframes slideIn {
+                from { transform: translateX(400px); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+              }
+              @keyframes slideOut {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(400px); opacity: 0; }
+              }
+            \`;
+            document.head.appendChild(style);
+            document.body.appendChild(alertDiv);
+
+            setTimeout(() => {
+              alertDiv.style.animation = 'slideOut 0.3s ease-out';
+              setTimeout(() => alertDiv.remove(), 300);
+            }, 3000);
+          `
+        });
+
+        // Open popup to show updated compilation
+        browser.browserAction.openPopup();
+      }
+    } catch (error) {
+      console.error('Error in add-and-show command:', error);
+      browser.notifications.create({
+        type: 'basic',
+        iconUrl: browser.runtime.getURL('icons/icon-48.png'),
+        title: '❌ Erreur',
+        message: error.message
+      });
+    }
+  }
+});
+
+// Handle messages from popup
+browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === 'exportDraft') {
+    handleExportDraft(message.draft)
+      .then(() => sendResponse({ success: true }))
+      .catch(error => sendResponse({ success: false, error: error.message }));
+    return true; // Keep channel open for async response
+  }
+
+  if (message.action === 'saveSingleArticle') {
+    handleSaveSingleArticle(message.tabId)
+      .then(() => sendResponse({ success: true }))
+      .catch(error => sendResponse({ success: false, error: error.message }));
+    return true; // Keep channel open for async response
+  }
+
+  if (message.action === 'addToDraft') {
+    handleAddToDraft(message.tabId)
+      .then(count => sendResponse({ success: true, count: count }))
+      .catch(error => sendResponse({ success: false, error: error.message }));
+    return true; // Keep channel open for async response
+  }
+});
+
+// Handle export draft from popup
+async function handleExportDraft(draft) {
+  // Generate multi-article EPUB
+  const epub = await generateMultiArticleEPUB(draft);
+
+  // Get first article domain for metadata
+  const firstDomain = draft.articles[0].domain || '';
+
+  // Create title for compilation
+  const title = `Compilation ${draft.articles.length} articles - ${new Date().toLocaleDateString('fr-FR')}`;
+
+  // Send to server
+  await sendToServer(epub, title, '', firstDomain);
+}
+
+// Handle save single article from popup
+async function handleSaveSingleArticle(tabId) {
+  // Extract article from tab
+  const response = await browser.tabs.sendMessage(tabId, {
+    action: 'extractArticle'
+  });
+
+  if (!response || !response.article) {
+    throw new Error('Impossible d\'extraire l\'article');
+  }
+
+  // Generate single EPUB
+  const epub = await generateEPUB(response.article);
+
+  // Send to server
+  await sendToServer(epub, response.article.title, response.article.url, response.article.domain);
+}
+
+// Handle add to draft from popup
+async function handleAddToDraft(tabId) {
+  // Extract article from tab
+  const response = await browser.tabs.sendMessage(tabId, {
+    action: 'extractArticle'
+  });
+
+  if (!response || !response.article) {
+    throw new Error('Impossible d\'extraire l\'article');
+  }
+
+  // Add to draft
+  const draft = await addArticleToDraft(response.article);
+
+  return draft.articles.length;
+}
+
+// Generate multi-article EPUB from draft
+async function generateMultiArticleEPUB(draft) {
+  const zip = new JSZip();
+
+  // EPUB structure
+  zip.file('mimetype', 'application/epub+zip');
+
+  // META-INF/container.xml
+  zip.folder('META-INF').file('container.xml', `<?xml version="1.0"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles>
+    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
+  </rootfiles>
+</container>`);
+
+  const oebps = zip.folder('OEBPS');
+
+  // Process all articles
+  const processedArticles = [];
+
+  for (let articleIndex = 0; articleIndex < draft.articles.length; articleIndex++) {
+    const article = draft.articles[articleIndex];
+
+    // Process content - images are already embedded with absolute URLs from when article was extracted
+    // Just use the content as-is since it was already processed during extraction
+    const cleanedContent = cleanHtmlEntities(article.content);
+    const xhtmlSafeContent = enforceXhtmlVoidElements(cleanedContent);
+
+    processedArticles.push({
+      ...article,
+      processedContent: xhtmlSafeContent,
+      chapterId: `chapter_${articleIndex + 1}`
+    });
+  }
+
+  // Generate table of contents XHTML
+  let tocHtml = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title>Sommaire</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+</head>
+<body>
+  <h1>Sommaire</h1>
+  <ul>`;
+
+  processedArticles.forEach((article) => {
+    tocHtml += `
+    <li><a href="${article.chapterId}.xhtml">${escapeXml(article.title)}</a></li>`;
+  });
+
+  tocHtml += `
+  </ul>
+</body>
+</html>`;
+
+  oebps.file('toc.xhtml', tocHtml);
+
+  // Generate individual chapter files
+  processedArticles.forEach(article => {
+    const chapterXhtml = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title>${escapeXml(article.title)}</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+</head>
+<body>
+  <h1>${escapeXml(article.title)}</h1>
+  ${article.author ? `<p><em>Par ${escapeXml(article.author)}</em></p>` : ''}
+  ${article.date ? `<p><em>${escapeXml(article.date)}</em></p>` : ''}
+  <hr/>
+  ${article.processedContent}
+</body>
+</html>`;
+    oebps.file(`${article.chapterId}.xhtml`, chapterXhtml);
+  });
+
+  // Generate content.opf with all chapters
+  const manifestItems = [`    <item id="toc-page" href="toc.xhtml" media-type="application/xhtml+xml"/>`];
+  processedArticles.forEach(article => {
+    manifestItems.push(`    <item id="${article.chapterId}" href="${article.chapterId}.xhtml" media-type="application/xhtml+xml"/>`);
+  });
+
+  const spineItems = [`    <itemref idref="toc-page"/>`];
+  processedArticles.forEach(article => {
+    spineItems.push(`    <itemref idref="${article.chapterId}"/>`);
+  });
+
+  const title = `Compilation ${draft.articles.length} articles`;
+  const contentOpf = `<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" unique-identifier="bookid" version="2.0">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:title>${escapeXml(title)}</dc:title>
+    <dc:creator>Web2EPUB</dc:creator>
+    <dc:language>fr</dc:language>
+    <dc:date>${new Date().toISOString().split('T')[0]}</dc:date>
+    <dc:identifier id="bookid">${generateUUID()}</dc:identifier>
+  </metadata>
+  <manifest>
+    <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
+${manifestItems.join('\n')}
+  </manifest>
+  <spine toc="ncx">
+${spineItems.join('\n')}
+  </spine>
+</package>`;
+  oebps.file('content.opf', contentOpf);
+
+  // Generate NCX table of contents
+  let ncxNavPoints = '';
+  processedArticles.forEach((article, index) => {
+    ncxNavPoints += `
+    <navPoint id="nav-${index + 1}" playOrder="${index + 1}">
+      <navLabel>
+        <text>${escapeXml(article.title)}</text>
+      </navLabel>
+      <content src="${article.chapterId}.xhtml"/>
+    </navPoint>`;
+  });
+
+  const tocNcx = `<?xml version="1.0" encoding="UTF-8"?>
+<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
+  <head>
+    <meta name="dtb:uid" content="${generateUUID()}"/>
+    <meta name="dtb:depth" content="1"/>
+    <meta name="dtb:totalPageCount" content="0"/>
+    <meta name="dtb:maxPageNumber" content="0"/>
+  </head>
+  <docTitle>
+    <text>${escapeXml(title)}</text>
+  </docTitle>
+  <navMap>${ncxNavPoints}
+  </navMap>
+</ncx>`;
+  oebps.file('toc.ncx', tocNcx);
+
+  // Generate EPUB blob
+  const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/epub+zip' });
+  return blob;
+}
 
 // Generate EPUB from article data
 async function generateEPUB(article) {

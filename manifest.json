@@ -14,16 +14,17 @@
     "activeTab",
     "storage",
     "notifications",
+    "contextMenus",
     "<all_urls>"
   ],
 
   "commands": {
-    "_execute_browser_action": {
+    "add-and-show": {
       "suggested_key": {
         "default": "Ctrl+Shift+E",
         "mac": "Command+Shift+E"
       },
-      "description": "Extraire l'article et convertir en EPUB"
+      "description": "Ajouter l'article à la compilation et afficher la popup"
     }
   },
 
@@ -35,7 +36,8 @@
     "default_icon": {
       "48": "icons/icon-48.png"
     },
-    "default_title": "Save to EPUB"
+    "default_title": "Web2EPUB - Compilation",
+    "default_popup": "popup.html"
   },
 
   "content_scripts": [
