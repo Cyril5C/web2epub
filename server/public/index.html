@@ -76,13 +76,19 @@
     function load() {
       var xhr = new XMLHttpRequest();
       xhr.open('GET', '/api/epubs', true);
+      xhr.withCredentials = true;
       xhr.onload = function() {
         if (xhr.status === 200) {
           epubs = JSON.parse(xhr.responseText);
           display(epubs);
         } else {
-          document.getElementById('list').innerHTML = '<li class="empty">Erreur</li>';
+          document.getElementById('list').innerHTML = '<li class="empty">Erreur ' + xhr.status + ': ' + xhr.statusText + '</li>';
+          console.error('Error loading EPUBs:', xhr.status, xhr.statusText, xhr.responseText);
         }
+      };
+      xhr.onerror = function() {
+        document.getElementById('list').innerHTML = '<li class="empty">Erreur réseau</li>';
+        console.error('Network error loading EPUBs');
       };
       xhr.send();
     }
@@ -117,6 +123,7 @@
       if (!confirm('Supprimer ?')) return;
       var xhr = new XMLHttpRequest();
       xhr.open('DELETE', '/api/epubs/' + id, true);
+      xhr.withCredentials = true;
       xhr.onload = function() {
         load();
       };
