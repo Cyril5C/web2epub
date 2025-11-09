@@ -513,7 +513,8 @@ async function generateMultiArticleEPUB(draft) {
     chapterParts.push('  <style type="text/css">');
     chapterParts.push('    img {');
     chapterParts.push('      display: block;');
-    chapterParts.push('      max-width: 100%;');
+    chapterParts.push('      width: 100% !important;');
+    chapterParts.push('      max-width: 100% !important;');
     chapterParts.push('      height: auto;');
     chapterParts.push('      margin: 1em 0;');
     chapterParts.push('      clear: both;');
@@ -755,7 +756,8 @@ ${imageManifestItems.join('\n')}
   <style type="text/css">
     img {
       display: block;
-      max-width: 100%;
+      width: 100% !important;
+      max-width: 100% !important;
       height: auto;
       margin: 1em 0;
       clear: both;
