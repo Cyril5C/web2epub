@@ -220,8 +220,8 @@ browser.commands.onCommand.addListener(async (command) => {
           `
         });
 
-        // Open popup to show updated compilation
-        browser.browserAction.openPopup();
+        // Note: Cannot open popup from keyboard shortcut in Firefox
+        // User will see notification and can click extension icon to see compilation
       }
     } catch (error) {
       console.error('Error in add-and-show command:', error);
