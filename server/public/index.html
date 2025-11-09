@@ -74,21 +74,28 @@
     var epubs = [];
 
     function load() {
+      // Fallback: show loading message
+      document.getElementById('list').innerHTML = '<li class="empty">Chargement...</li>';
+
       var xhr = new XMLHttpRequest();
       xhr.open('GET', '/api/epubs', true);
-      xhr.withCredentials = true;
-      xhr.onload = function() {
-        if (xhr.status === 200) {
-          epubs = JSON.parse(xhr.responseText);
-          display(epubs);
-        } else {
-          document.getElementById('list').innerHTML = '<li class="empty">Erreur ' + xhr.status + ': ' + xhr.statusText + '</li>';
-          console.error('Error loading EPUBs:', xhr.status, xhr.statusText, xhr.responseText);
+
+      // Don't use withCredentials on same-origin requests for older browsers
+      // The auth cookies should be sent automatically
+
+      xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4) {
+          if (xhr.status === 200) {
+            try {
+              epubs = JSON.parse(xhr.responseText);
+              display(epubs);
+            } catch (e) {
+              document.getElementById('list').innerHTML = '<li class="empty">Erreur JSON</li>';
+            }
+          } else {
+            document.getElementById('list').innerHTML = '<li class="empty">Erreur ' + xhr.status + '</li>';
+          }
         }
-      };
-      xhr.onerror = function() {
-        document.getElementById('list').innerHTML = '<li class="empty">Erreur réseau</li>';
-        console.error('Network error loading EPUBs');
       };
       xhr.send();
     }
@@ -105,12 +112,16 @@
       for (var i = 0; i < items.length; i++) {
         var e = items[i];
         var date = new Date(e.uploadedAt);
+        var day = date.getDate();
+        var month = date.getMonth() + 1;
+        var year = date.getFullYear();
+        var dateStr = (day < 10 ? '0' : '') + day + '/' + (month < 10 ? '0' : '') + month + '/' + year;
         var size = (e.size / 1024 / 1024).toFixed(2);
         var urlLink = e.url ? '<a href="' + esc(e.url) + '" target="_blank">Article</a>' : '';
         var source = e.domain ? '<span class="source">' + getSourceName(e.domain) + '</span>' : '';
         html += '<li>' +
           '<span class="title">' + esc(e.title) + source + '</span>' +
-          '<span class="meta">' + date.toLocaleDateString('fr-FR') + ' - ' + size + ' MB</span>' +
+          '<span class="meta">' + dateStr + ' - ' + size + ' MB</span>' +
           '<a href="/api/download/' + e.id + '">Telecharger</a>' +
           urlLink +
           '<button onclick="del(\'' + e.id + '\')">Supprimer</button>' +
@@ -123,9 +134,10 @@
       if (!confirm('Supprimer ?')) return;
       var xhr = new XMLHttpRequest();
       xhr.open('DELETE', '/api/epubs/' + id, true);
-      xhr.withCredentials = true;
-      xhr.onload = function() {
-        load();
+      xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4) {
+          load();
+        }
       };
       xhr.send();
     }
