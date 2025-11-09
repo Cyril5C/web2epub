@@ -1132,28 +1132,27 @@ async function createMosaicCover(imagesFolder, imageCount, articles) {
     }
   }
 
-  // Map domains to readable names
-  var domainNames = {
-    'lemonde.fr': 'Le Monde',
-    'mediapart.fr': 'Mediapart',
-    'liberation.fr': 'Libération',
-    'lefigaro.fr': 'Le Figaro',
-    'leparisien.fr': 'Le Parisien',
-    'francetvinfo.fr': 'France Info',
-    'lexpress.fr': 'L\'Express',
-    'nouvelobs.com': 'L\'Obs',
-    'slate.fr': 'Slate',
-    'huffingtonpost.fr': 'HuffPost',
-    'courrierinternational.com': 'Courrier International',
-    'lemediatv.fr': 'Le Média',
-    'regards.fr': 'Regards'
-  };
+  // Map domains to readable names (same logic as index.html)
+  function getSourceName(domain) {
+    if (domain.indexOf('lemonde.fr') !== -1) return 'Le Monde';
+    if (domain.indexOf('mediapart.fr') !== -1) return 'Mediapart';
+    if (domain.indexOf('liberation.fr') !== -1) return 'Libération';
+    if (domain.indexOf('lefigaro.fr') !== -1) return 'Le Figaro';
+    if (domain.indexOf('leparisien.fr') !== -1) return 'Le Parisien';
+    if (domain.indexOf('lexpress.fr') !== -1) return 'L\'Express';
+    if (domain.indexOf('nouvelobs.com') !== -1) return 'L\'Obs';
+    if (domain.indexOf('slate.fr') !== -1) return 'Slate';
+    if (domain.indexOf('huffingtonpost.fr') !== -1) return 'HuffPost';
+    if (domain.indexOf('courrierinternational.com') !== -1) return 'Courrier International';
+    if (domain.indexOf('francetvinfo.fr') !== -1) return 'France Info';
+    if (domain.indexOf('rfi.fr') !== -1) return 'RFI';
+    return domain.replace('www.', '');
+  }
 
   var sourcesList = [];
   for (var domain in uniqueDomains) {
     if (uniqueDomains.hasOwnProperty(domain)) {
-      var sourceName = domainNames[domain] || domain.replace(/^www\./, '').split('.')[0];
-      sourcesList.push(sourceName);
+      sourcesList.push(getSourceName(domain));
     }
   }
 
