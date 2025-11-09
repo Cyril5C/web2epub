@@ -378,8 +378,13 @@ async function generateMultiArticleEPUB(draft) {
           imageManifestItems.push(`    <item id="img_${globalImageCounter}" href="images/${filename}" media-type="${mimeType}"/>`);
         } catch (error) {
           console.warn(`  ✗ Failed to download image: ${src}`, error);
-          // Remove broken image from content
-          img.remove();
+          // Remove the entire parent element to avoid empty spaces
+          const parent = img.parentElement;
+          if (parent && parent.tagName !== 'BODY' && parent !== tempDiv) {
+            parent.remove();
+          } else {
+            img.remove();
+          }
         }
       }
     }
@@ -496,6 +501,10 @@ async function generateMultiArticleEPUB(draft) {
   });
 
   const title = `Compilation ${draft.articles.length} articles`;
+
+  // Add cover metadata if cover exists
+  const coverMetadata = globalImageCounter > 0 ? '\n    <meta name="cover" content="cover-image"/>' : '';
+
   const contentOpf = `<?xml version="1.0" encoding="UTF-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" unique-identifier="bookid" version="2.0">
   <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
@@ -503,7 +512,7 @@ async function generateMultiArticleEPUB(draft) {
     <dc:creator>Web2EPUB</dc:creator>
     <dc:language>fr</dc:language>
     <dc:date>${new Date().toISOString().split('T')[0]}</dc:date>
-    <dc:identifier id="bookid">${generateUUID()}</dc:identifier>
+    <dc:identifier id="bookid">${generateUUID()}</dc:identifier>${coverMetadata}
   </metadata>
   <manifest>
     <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
