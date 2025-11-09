@@ -370,22 +370,30 @@ async function generateMultiArticleEPUB(draft) {
 
   // Generate individual chapter files
   processedArticles.forEach(article => {
-    const chapterXhtml = `<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml">
-<head>
-  <title>${escapeXml(article.title)}</title>
-  <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-</head>
-<body>
-  <h1>${escapeXml(article.title)}</h1>
-  ${article.author ? `<p><em>Par ${escapeXml(article.author)}</em></p>` : ''}
-  ${article.date ? `<p><em>${escapeXml(article.date)}</em></p>` : ''}
-  <hr/>
-  ${article.processedContent}
-</body>
-</html>`;
-    oebps.file(`${article.chapterId}.xhtml`, chapterXhtml);
+    // Build XHTML parts separately to avoid template literal issues with content
+    var chapterParts = [];
+    chapterParts.push('<?xml version="1.0" encoding="UTF-8"?>');
+    chapterParts.push('<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">');
+    chapterParts.push('<html xmlns="http://www.w3.org/1999/xhtml">');
+    chapterParts.push('<head>');
+    chapterParts.push('  <title>' + escapeXml(article.title) + '</title>');
+    chapterParts.push('  <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>');
+    chapterParts.push('</head>');
+    chapterParts.push('<body>');
+    chapterParts.push('  <h1>' + escapeXml(article.title) + '</h1>');
+    if (article.author) {
+      chapterParts.push('  <p><em>Par ' + escapeXml(article.author) + '</em></p>');
+    }
+    if (article.date) {
+      chapterParts.push('  <p><em>' + escapeXml(article.date) + '</em></p>');
+    }
+    chapterParts.push('  <hr/>');
+    chapterParts.push('  ' + article.processedContent);
+    chapterParts.push('</body>');
+    chapterParts.push('</html>');
+
+    var chapterXhtml = chapterParts.join('\n');
+    oebps.file(article.chapterId + '.xhtml', chapterXhtml);
   });
 
   // Generate content.opf with all chapters
