@@ -410,6 +410,19 @@ async function generateMultiArticleEPUB(draft) {
     });
   }
 
+  // Generate cover image with mosaic of article images
+  console.log(`Creating cover with ${globalImageCounter} images`);
+  if (globalImageCounter > 0) {
+    try {
+      const coverBlob = await createMosaicCover(imagesFolder, globalImageCounter);
+      imagesFolder.file('cover.jpg', coverBlob);
+      imageManifestItems.push('    <item id="cover-image" href="images/cover.jpg" media-type="image/jpeg"/>');
+      console.log('✓ Cover image created');
+    } catch (error) {
+      console.warn('Failed to create cover:', error);
+    }
+  }
+
   // Generate table of contents XHTML
   let tocHtml = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
@@ -970,5 +983,93 @@ function enforceXhtmlVoidElements(html) {
       return match;
     }
     return `<${tag}${attrs} />`;
+  });
+}
+
+// Create mosaic cover image from downloaded images
+async function createMosaicCover(imagesFolder, imageCount) {
+  // Portrait cover size
+  const coverWidth = 600;
+  const coverHeight = 800;
+
+  // Create canvas
+  const canvas = document.createElement('canvas');
+  canvas.width = coverWidth;
+  canvas.height = coverHeight;
+  const ctx = canvas.getContext('2d');
+
+  // Background color
+  ctx.fillStyle = '#2c3e50';
+  ctx.fillRect(0, 0, coverWidth, coverHeight);
+
+  // Calculate grid layout (2 columns for portrait)
+  const cols = 2;
+  const maxImages = Math.min(imageCount, 8); // Max 8 images (4 rows x 2 cols)
+  const rows = Math.ceil(maxImages / cols);
+
+  const cellWidth = coverWidth / cols;
+  const cellHeight = coverHeight / rows;
+
+  // Load and draw images
+  const loadImage = (blob) => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(blob);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        resolve(img);
+      };
+      img.onerror = reject;
+      img.src = url;
+    });
+  };
+
+  // Draw images in grid
+  for (let i = 0; i < maxImages; i++) {
+    try {
+      const filename = `image_${i + 1}.jpeg`;
+      const file = imagesFolder.file(filename) || imagesFolder.file(`image_${i + 1}.jpg`) || imagesFolder.file(`image_${i + 1}.png`);
+
+      if (!file) continue;
+
+      const blob = await file.async('blob');
+      const img = await loadImage(blob);
+
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const x = col * cellWidth;
+      const y = row * cellHeight;
+
+      // Calculate scaling to cover cell while maintaining aspect ratio
+      const scale = Math.max(cellWidth / img.width, cellHeight / img.height);
+      const scaledWidth = img.width * scale;
+      const scaledHeight = img.height * scale;
+
+      // Center image in cell
+      const offsetX = x + (cellWidth - scaledWidth) / 2;
+      const offsetY = y + (cellHeight - scaledHeight) / 2;
+
+      ctx.drawImage(img, offsetX, offsetY, scaledWidth, scaledHeight);
+    } catch (error) {
+      console.warn(`Could not load image ${i + 1} for cover:`, error);
+    }
+  }
+
+  // Add title overlay
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+  ctx.fillRect(0, coverHeight - 100, coverWidth, 100);
+
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 24px Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText('Compilation', coverWidth / 2, coverHeight - 60);
+  ctx.font = '18px Arial';
+  ctx.fillText(`${imageCount} images`, coverWidth / 2, coverHeight - 30);
+
+  // Convert canvas to blob
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => {
+      resolve(blob);
+    }, 'image/jpeg', 0.85);
   });
 }
