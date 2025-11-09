@@ -444,6 +444,15 @@ async function generateMultiArticleEPUB(draft) {
     chapterParts.push('<head>');
     chapterParts.push('  <title>' + escapeXml(article.title) + '</title>');
     chapterParts.push('  <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>');
+    chapterParts.push('  <style type="text/css">');
+    chapterParts.push('    img {');
+    chapterParts.push('      display: block;');
+    chapterParts.push('      max-width: 100%;');
+    chapterParts.push('      height: auto;');
+    chapterParts.push('      margin: 1em 0;');
+    chapterParts.push('      clear: both;');
+    chapterParts.push('    }');
+    chapterParts.push('  </style>');
     chapterParts.push('</head>');
     chapterParts.push('<body>');
     chapterParts.push('  <h1>' + escapeXml(article.title) + '</h1>');
@@ -664,6 +673,15 @@ ${imageManifestItems.join('\n')}
 <head>
   <title>${escapeXml(article.title)}</title>
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+  <style type="text/css">
+    img {
+      display: block;
+      max-width: 100%;
+      height: auto;
+      margin: 1em 0;
+      clear: both;
+    }
+  </style>
 </head>
 <body>
   <h1>${escapeXml(article.title)}</h1>
