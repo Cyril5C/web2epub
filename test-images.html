@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Images Web2EPUB</title>
+    <style>
+        body {
+            font-family: Georgia, serif;
+            max-width: 700px;
+            margin: 40px auto;
+            padding: 20px;
+            line-height: 1.6;
+            background: #f5f5f5;
+        }
+        .article {
+            background: white;
+            padding: 40px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+        img {
+            max-width: 100%;
+            height: auto;
+            margin: 20px 0;
+            border: 1px solid #ddd;
+        }
+        .meta {
+            color: #666;
+            font-style: italic;
+            margin: 20px 0;
+        }
+        .instructions {
+            background: #fffbcc;
+            border-left: 4px solid #ffeb3b;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .instructions h3 {
+            margin-top: 0;
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <div class="article">
+        <h1>Article de test avec images</h1>
+
+        <div class="meta">
+            <strong>Auteur :</strong> Test Web2EPUB<br>
+            <strong>Date :</strong> 9 novembre 2025
+        </div>
+
+        <div class="instructions">
+            <h3>📋 Instructions de test :</h3>
+            <ol>
+                <li>Ouvrez la console du navigateur (F12)</li>
+                <li>Utilisez Ctrl+Shift+E pour ajouter cet article</li>
+                <li>Ajoutez 2-3 articles avec images</li>
+                <li>Exportez la compilation en EPUB</li>
+                <li>Dans la console, vérifiez les messages de téléchargement d'images</li>
+                <li>Transférez l'EPUB sur votre Kobo</li>
+            </ol>
+        </div>
+
+        <h2>Les formats d'images web</h2>
+
+        <p>Voici différentes images pour tester le téléchargement et l'intégration dans l'EPUB :</p>
+
+        <h3>Image 1 : JPEG</h3>
+        <img src="https://via.placeholder.com/600x400/667eea/ffffff?text=Image+JPEG+Test+1" alt="Image de test JPEG 1">
+        <p>Cette image est au format JPEG, le format le plus courant pour les photographies.</p>
+
+        <h3>Image 2 : PNG</h3>
+        <img src="https://via.placeholder.com/600x300/764ba2/ffffff?text=Image+PNG+Test+2" alt="Image de test PNG 2">
+        <p>Cette image est au format PNG, idéal pour les graphiques avec transparence.</p>
+
+        <h3>Image 3 : SVG converti</h3>
+        <img src="https://via.placeholder.com/500x500/f093fb/000000?text=Image+Test+3" alt="Image de test 3">
+        <p>Une troisième image pour vérifier le compteur global d'images.</p>
+
+        <h2>Vérification console</h2>
+
+        <p>Lors de l'export, vous devriez voir dans la console :</p>
+        <ul>
+            <li><code>Processing article 1: "..." - Found 3 images</code></li>
+            <li><code>Downloading image 1/3: https://...</code></li>
+            <li><code>✓ Image saved as image_1.png (image/png)</code></li>
+            <li>Répété pour chaque image</li>
+        </ul>
+
+        <h2>Contenu additionnel</h2>
+
+        <p>
+            Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor
+            incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud
+            exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+        </p>
+
+        <img src="https://via.placeholder.com/700x200/4CAF50/ffffff?text=Banniere+Test" alt="Bannière de test">
+
+        <p>
+            Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu
+            fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in
+            culpa qui officia deserunt mollit anim id est laborum.
+        </p>
+    </div>
+</body>
+</html>
