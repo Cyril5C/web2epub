@@ -436,15 +436,44 @@ async function generateMultiArticleEPUB(draft) {
 
   // Generate cover image with mosaic of article images
   console.log(`Creating cover with ${globalImageCounter} images`);
+  let hasCover = false;
   if (globalImageCounter > 0) {
     try {
       const coverBlob = await createMosaicCover(imagesFolder, globalImageCounter);
       imagesFolder.file('cover.jpg', coverBlob);
       imageManifestItems.push('    <item id="cover-image" href="images/cover.jpg" media-type="image/jpeg"/>');
+      hasCover = true;
       console.log('✓ Cover image created');
     } catch (error) {
       console.warn('Failed to create cover:', error);
     }
+  }
+
+  // Generate cover page XHTML if we have a cover
+  if (hasCover) {
+    const coverXhtml = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title>Couverture</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+  <style type="text/css">
+    body {
+      margin: 0;
+      padding: 0;
+      text-align: center;
+    }
+    img {
+      max-width: 100%;
+      max-height: 100%;
+    }
+  </style>
+</head>
+<body>
+  <img src="images/cover.jpg" alt="Couverture"/>
+</body>
+</html>`;
+    oebps.file('cover.xhtml', coverXhtml);
   }
 
   // Generate table of contents XHTML
@@ -509,13 +538,22 @@ async function generateMultiArticleEPUB(draft) {
   });
 
   // Generate content.opf with all chapters
-  const manifestItems = [`    <item id="toc-page" href="toc.xhtml" media-type="application/xhtml+xml"/>`];
+  const manifestItems = [];
+  const spineItems = [];
+
+  // Add cover page first if it exists
+  if (hasCover) {
+    manifestItems.push(`    <item id="cover-page" href="cover.xhtml" media-type="application/xhtml+xml"/>`);
+    spineItems.push(`    <itemref idref="cover-page"/>`);
+  }
+
+  // Add table of contents
+  manifestItems.push(`    <item id="toc-page" href="toc.xhtml" media-type="application/xhtml+xml"/>`);
+  spineItems.push(`    <itemref idref="toc-page"/>`);
+
+  // Add all chapter pages
   processedArticles.forEach(article => {
     manifestItems.push(`    <item id="${article.chapterId}" href="${article.chapterId}.xhtml" media-type="application/xhtml+xml"/>`);
-  });
-
-  const spineItems = [`    <itemref idref="toc-page"/>`];
-  processedArticles.forEach(article => {
     spineItems.push(`    <itemref idref="${article.chapterId}"/>`);
   });
 
