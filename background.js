@@ -344,8 +344,21 @@ async function downloadImage(img, baseUrl, imagesFolder, imageIndex, imageCount,
     return null;
   }
 
+  // Validate URL for security
+  if (!isValidUrl(src)) {
+    console.error(`  ✗ [${currentIndex}/${imageCount}] Blocked dangerous URL: ${src}`);
+    img.remove();
+    return null;
+  }
+
   try {
     const imageUrl = new URL(src, baseUrl).href;
+
+    // Double-check the resolved URL
+    if (!isValidUrl(imageUrl)) {
+      throw new Error('Resolved URL failed security validation');
+    }
+
     console.log(`  [${currentIndex}/${imageCount}] Downloading: ${imageUrl}`);
 
     const response = await fetch(imageUrl);
@@ -392,13 +405,16 @@ async function downloadImage(img, baseUrl, imagesFolder, imageIndex, imageCount,
  */
 async function processArticleImages(article, articleIndex, imagesFolder, startImageIndex) {
   const tempDiv = document.createElement('div');
-  tempDiv.innerHTML = article.content;
+  // Use sanitizeHtml to prevent XSS when parsing article content
+  const sanitizedContent = sanitizeHtml(article.content);
+  tempDiv.innerHTML = sanitizedContent;
   const imgElements = tempDiv.querySelectorAll('img');
 
   console.log(`Processing article ${articleIndex + 1}: "${article.title}" - Found ${imgElements.length} images`);
 
   const imageManifestItems = [];
   let imageCounter = startImageIndex;
+  let failedImages = 0;
 
   for (let i = 0; i < imgElements.length; i++) {
     const result = await downloadImage(
@@ -413,13 +429,23 @@ async function processArticleImages(article, articleIndex, imagesFolder, startIm
     if (result) {
       imageManifestItems.push(result.manifestItem);
       imageCounter++;
+    } else {
+      failedImages++;
     }
+  }
+
+  // Log summary
+  const successCount = imageCounter - startImageIndex;
+  if (failedImages > 0) {
+    console.warn(`  ⚠ Article ${articleIndex + 1}: ${successCount}/${imgElements.length} images downloaded successfully, ${failedImages} failed`);
   }
 
   return {
     processedContent: tempDiv.innerHTML,
     imageManifestItems,
-    imageCount: imageCounter - startImageIndex
+    imageCount: imageCounter - startImageIndex,
+    failedCount: failedImages,
+    totalCount: imgElements.length
   };
 }
 
@@ -482,6 +508,8 @@ async function generateMultiArticleEPUB(draft) {
   // Track all images and their manifest items
   const imageManifestItems = [];
   let globalImageCounter = 0;
+  let totalFailedImages = 0;
+  let totalProcessedImages = 0;
 
   // Process all articles
   const processedArticles = [];
@@ -494,6 +522,8 @@ async function generateMultiArticleEPUB(draft) {
 
     imageManifestItems.push(...imageResult.imageManifestItems);
     globalImageCounter += imageResult.imageCount;
+    totalFailedImages += imageResult.failedCount;
+    totalProcessedImages += imageResult.totalCount;
 
     // Process content
     const cleanedContent = cleanHtmlEntities(imageResult.processedContent);
@@ -503,6 +533,17 @@ async function generateMultiArticleEPUB(draft) {
       ...article,
       processedContent: xhtmlSafeContent,
       chapterId: `chapter_${articleIndex + 1}`
+    });
+  }
+
+  // Notify user if images failed
+  if (totalFailedImages > 0) {
+    console.warn(`⚠ EPUB Generation: ${totalFailedImages}/${totalProcessedImages} images failed to download`);
+    browser.notifications.create({
+      type: 'basic',
+      iconUrl: browser.runtime.getURL('icons/icon-48.png'),
+      title: '⚠ Attention',
+      message: `${totalFailedImages}/${totalProcessedImages} image(s) n'ont pas pu être téléchargée(s). L'EPUB sera généré sans ces images.`
     });
   }
 
@@ -679,9 +720,10 @@ async function generateEPUB(article) {
   const images = [];
   const imageManifestItems = [];
 
-  // Extract image URLs from content
+  // Extract image URLs from content (sanitize to prevent XSS)
   const tempDiv = document.createElement('div');
-  tempDiv.innerHTML = article.content;
+  const sanitizedContent = sanitizeHtml(article.content);
+  tempDiv.innerHTML = sanitizedContent;
   const imgElements = tempDiv.querySelectorAll('img');
 
   for (let i = 0; i < imgElements.length; i++) {
@@ -689,9 +731,21 @@ async function generateEPUB(article) {
     const src = img.getAttribute('src');
 
     if (src) {
+      // Validate URL for security
+      if (!isValidUrl(src)) {
+        console.warn(`Skipping dangerous URL in article: ${src}`);
+        continue;
+      }
+
       try {
         // Convert relative URLs to absolute
         const imageUrl = new URL(src, article.url || window.location.href).href;
+
+        // Double-check resolved URL
+        if (!isValidUrl(imageUrl)) {
+          console.warn(`Skipping invalid resolved URL: ${imageUrl}`);
+          continue;
+        }
 
         // Download image
         const response = await fetch(imageUrl);
@@ -851,6 +905,10 @@ async function sendToServer(epubBlob, title, url, domain) {
 }
 
 // Utility functions
+
+/**
+ * Escape XML special characters
+ */
 function escapeXml(text) {
   if (!text) return '';
   return text
@@ -859,6 +917,87 @@ function escapeXml(text) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;');
+}
+
+/**
+ * Sanitize HTML content to prevent XSS
+ * Strips dangerous tags and attributes while preserving safe content
+ */
+function sanitizeHtml(html) {
+  if (!html) return '';
+
+  const tempDiv = document.createElement('div');
+  tempDiv.textContent = ''; // Clear any content first
+
+  // Create a DOM parser for safer HTML parsing
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+
+  // Remove dangerous tags
+  const dangerousTags = ['script', 'iframe', 'object', 'embed', 'link', 'style', 'form', 'input', 'button'];
+  dangerousTags.forEach(tag => {
+    const elements = doc.querySelectorAll(tag);
+    elements.forEach(el => el.remove());
+  });
+
+  // Remove dangerous attributes from all elements
+  const dangerousAttrs = ['onclick', 'onload', 'onerror', 'onmouseover', 'onfocus', 'onblur', 'onchange', 'onsubmit'];
+  const allElements = doc.querySelectorAll('*');
+  allElements.forEach(el => {
+    dangerousAttrs.forEach(attr => {
+      if (el.hasAttribute(attr)) {
+        el.removeAttribute(attr);
+      }
+    });
+  });
+
+  return doc.body.innerHTML;
+}
+
+/**
+ * Validate URL to prevent dangerous protocols
+ * @param {string} url - URL to validate
+ * @returns {boolean} - True if URL is safe
+ */
+function isValidUrl(url) {
+  if (!url || typeof url !== 'string') return false;
+
+  // Trim whitespace
+  url = url.trim();
+
+  // Block dangerous protocols
+  const dangerousProtocols = ['javascript:', 'data:', 'vbscript:', 'file:', 'about:'];
+  const lowerUrl = url.toLowerCase();
+
+  for (const protocol of dangerousProtocols) {
+    if (lowerUrl.startsWith(protocol)) {
+      console.warn(`Blocked dangerous URL protocol: ${protocol}`);
+      return false;
+    }
+  }
+
+  // Only allow http, https, and relative URLs
+  if (lowerUrl.startsWith('http://') || lowerUrl.startsWith('https://') || lowerUrl.startsWith('/') || lowerUrl.startsWith('./')) {
+    return true;
+  }
+
+  // For relative URLs without protocol
+  if (!lowerUrl.includes(':')) {
+    return true;
+  }
+
+  console.warn(`Blocked invalid URL: ${url}`);
+  return false;
+}
+
+/**
+ * Safely set HTML content using textContent when possible
+ * @param {HTMLElement} element - Element to set content on
+ * @param {string} html - HTML content (will be sanitized)
+ */
+function safeSetHtml(element, html) {
+  const sanitized = sanitizeHtml(html);
+  element.innerHTML = sanitized;
 }
 
 function generateUUID() {
