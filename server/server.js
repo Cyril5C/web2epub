@@ -178,6 +178,81 @@ function writeMetadata(metadata) {
   }
 }
 
+/**
+ * Validate and sanitize upload request body
+ * @param {Object} body - Request body to validate
+ * @returns {Object} - Validation result { valid: boolean, errors: array, sanitized: object }
+ */
+function validateUploadData(body) {
+  const errors = [];
+  const sanitized = {};
+
+  // Validate title
+  if (body.title) {
+    if (typeof body.title !== 'string') {
+      errors.push('Title must be a string');
+    } else if (body.title.length > 500) {
+      errors.push('Title too long (max 500 characters)');
+    } else {
+      sanitized.title = body.title.trim();
+    }
+  }
+
+  // Validate timestamp (optional)
+  if (body.timestamp) {
+    if (typeof body.timestamp !== 'string') {
+      errors.push('Timestamp must be a string');
+    } else {
+      const date = new Date(body.timestamp);
+      if (isNaN(date.getTime())) {
+        errors.push('Invalid timestamp format');
+      } else {
+        sanitized.timestamp = body.timestamp;
+      }
+    }
+  }
+
+  // Validate URL (optional)
+  if (body.url) {
+    if (typeof body.url !== 'string') {
+      errors.push('URL must be a string');
+    } else if (body.url.length > 2000) {
+      errors.push('URL too long (max 2000 characters)');
+    } else if (body.url.trim() !== '') {
+      // Validate URL format
+      try {
+        new URL(body.url);
+        sanitized.url = body.url.trim();
+      } catch (e) {
+        errors.push('Invalid URL format');
+      }
+    } else {
+      sanitized.url = '';
+    }
+  } else {
+    sanitized.url = '';
+  }
+
+  // Validate domain (optional)
+  if (body.domain) {
+    if (typeof body.domain !== 'string') {
+      errors.push('Domain must be a string');
+    } else if (body.domain.length > 255) {
+      errors.push('Domain too long (max 255 characters)');
+    } else {
+      sanitized.domain = body.domain.trim();
+    }
+  } else {
+    sanitized.domain = '';
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    sanitized
+  };
+}
+
 // Routes
 // Upload EPUB (protected by API key)
 app.post('/upload', uploadLimiter, validateApiKey, upload.single('epub'), (req, res) => {
@@ -186,17 +261,30 @@ app.post('/upload', uploadLimiter, validateApiKey, upload.single('epub'), (req, 
       return res.status(400).json({ error: 'Aucun fichier fourni' });
     }
 
+    // Validate request body
+    const validation = validateUploadData(req.body);
+    if (!validation.valid) {
+      // Delete uploaded file on validation error
+      if (fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
+      return res.status(400).json({
+        error: 'Données invalides',
+        details: validation.errors
+      });
+    }
+
     const metadata = readMetadata();
 
     const newEntry = {
       id: Date.now().toString(),
       filename: req.file.filename,
       originalName: req.file.originalname,
-      title: req.body.title || req.file.originalname.replace('.epub', ''),
+      title: validation.sanitized.title || req.file.originalname.replace('.epub', ''),
       size: req.file.size,
-      uploadedAt: req.body.timestamp || new Date().toISOString(),
-      url: req.body.url || '',
-      domain: req.body.domain || '',
+      uploadedAt: validation.sanitized.timestamp || new Date().toISOString(),
+      url: validation.sanitized.url || '',
+      domain: validation.sanitized.domain || '',
       path: req.file.path
     };
 
@@ -211,6 +299,10 @@ app.post('/upload', uploadLimiter, validateApiKey, upload.single('epub'), (req, 
       id: newEntry.id
     });
   } catch (error) {
+    // Cleanup uploaded file on error
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
     console.error('Upload error:', error);
     res.status(500).json({ error: error.message });
   }

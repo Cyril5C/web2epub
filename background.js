@@ -1,6 +1,40 @@
 // Extension background script
 console.log('Web2EPUB extension loaded');
 
+// ===== ERROR HANDLING =====
+
+/**
+ * Wrapper to handle errors in async event listeners
+ * @param {Function} handler - Async function to wrap
+ * @param {string} context - Context name for error logging
+ * @returns {Function} Wrapped handler with error handling
+ */
+function withErrorHandling(handler, context = 'Unknown') {
+  return async (...args) => {
+    try {
+      return await handler(...args);
+    } catch (error) {
+      console.error(`Error in ${context}:`, error);
+
+      // Show user notification
+      browser.notifications.create({
+        type: 'basic',
+        iconUrl: browser.runtime.getURL('icons/icon-48.png'),
+        title: '❌ Erreur Web2EPUB',
+        message: error.message || 'Une erreur inattendue s\'est produite'
+      });
+
+      // If there's a sendResponse callback, use it
+      const sendResponse = args[args.length - 1];
+      if (typeof sendResponse === 'function') {
+        sendResponse({ success: false, error: error.message });
+      }
+
+      throw error; // Re-throw for debugging
+    }
+  };
+}
+
 // ===== DRAFT EPUB MANAGEMENT =====
 
 // Get current draft from storage
@@ -52,6 +86,59 @@ async function getDraftArticleCount() {
   return draft ? draft.articles.length : 0;
 }
 
+// Show success alert on page
+async function showSuccessAlert(tabId, articleCount) {
+  await browser.tabs.executeScript(tabId, {
+    code: `
+      const alertDiv = document.createElement('div');
+      alertDiv.style.cssText = \`
+        position: fixed !important;
+        top: 20px !important;
+        right: 20px !important;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        color: white !important;
+        padding: 20px 30px !important;
+        border-radius: 10px !important;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3) !important;
+        z-index: 2147483647 !important;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+        font-size: 16px !important;
+        font-weight: bold !important;
+        animation: slideIn 0.3s ease-out !important;
+        pointer-events: none !important;
+      \`;
+      alertDiv.innerHTML = \`
+        <div style="display: flex; align-items: center; gap: 15px;">
+          <span style="font-size: 32px;">✅</span>
+          <div>
+            <div style="font-size: 18px; margin-bottom: 5px;">Article ajouté</div>
+            <div style="font-size: 14px; opacity: 0.9; font-weight: normal;">${articleCount} article(s) dans la compilation</div>
+          </div>
+        </div>
+      \`;
+
+      const style = document.createElement('style');
+      style.textContent = \`
+        @keyframes slideIn {
+          from { transform: translateX(400px); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideOut {
+          from { transform: translateX(0); opacity: 1; }
+          to { transform: translateX(400px); opacity: 0; }
+        }
+      \`;
+      document.head.appendChild(style);
+      document.body.appendChild(alertDiv);
+
+      setTimeout(() => {
+        alertDiv.style.animation = 'slideOut 0.3s ease-out';
+        setTimeout(() => alertDiv.remove(), 300);
+      }, 3000);
+    `
+  });
+}
+
 // Create context menu
 browser.runtime.onInstalled.addListener(() => {
   browser.contextMenus.create({
@@ -62,201 +149,91 @@ browser.runtime.onInstalled.addListener(() => {
 });
 
 // Handle context menu click
-browser.contextMenus.onClicked.addListener(async (info, tab) => {
+browser.contextMenus.onClicked.addListener(withErrorHandling(async (info, tab) => {
   if (info.menuItemId === 'add-to-epub') {
-    try {
-      // Extract article
-      const response = await browser.tabs.sendMessage(tab.id, {
-        action: 'extractArticle'
-      });
+    // Extract article
+    const response = await browser.tabs.sendMessage(tab.id, {
+      action: 'extractArticle'
+    });
 
-      if (response && response.article) {
-        // Add to draft
-        const draft = await addArticleToDraft(response.article);
+    if (response && response.article) {
+      // Add to draft
+      const draft = await addArticleToDraft(response.article);
 
-        // Show success notification
-        browser.notifications.create({
-          type: 'basic',
-          iconUrl: browser.runtime.getURL('icons/icon-48.png'),
-          title: '✅ Article ajouté',
-          message: `"${response.article.title}" ajouté à la compilation (${draft.articles.length} article(s))`
-        });
-
-        // Show alert on page
-        browser.tabs.executeScript(tab.id, {
-          code: `
-            const alertDiv = document.createElement('div');
-            alertDiv.style.cssText = \`
-              position: fixed !important;
-              top: 20px !important;
-              right: 20px !important;
-              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-              color: white !important;
-              padding: 20px 30px !important;
-              border-radius: 10px !important;
-              box-shadow: 0 4px 20px rgba(0,0,0,0.3) !important;
-              z-index: 2147483647 !important;
-              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
-              font-size: 16px !important;
-              font-weight: bold !important;
-              animation: slideIn 0.3s ease-out !important;
-              pointer-events: none !important;
-            \`;
-            alertDiv.innerHTML = \`
-              <div style="display: flex; align-items: center; gap: 15px;">
-                <span style="font-size: 32px;">✅</span>
-                <div>
-                  <div style="font-size: 18px; margin-bottom: 5px;">Article ajouté</div>
-                  <div style="font-size: 14px; opacity: 0.9; font-weight: normal;">${draft.articles.length} article(s) dans la compilation</div>
-                </div>
-              </div>
-            \`;
-
-            const style = document.createElement('style');
-            style.textContent = \`
-              @keyframes slideIn {
-                from { transform: translateX(400px); opacity: 0; }
-                to { transform: translateX(0); opacity: 1; }
-              }
-              @keyframes slideOut {
-                from { transform: translateX(0); opacity: 1; }
-                to { transform: translateX(400px); opacity: 0; }
-              }
-            \`;
-            document.head.appendChild(style);
-            document.body.appendChild(alertDiv);
-
-            setTimeout(() => {
-              alertDiv.style.animation = 'slideOut 0.3s ease-out';
-              setTimeout(() => alertDiv.remove(), 300);
-            }, 3000);
-          `
-        });
-      }
-    } catch (error) {
-      console.error('Error adding to draft:', error);
+      // Show success notification
       browser.notifications.create({
         type: 'basic',
         iconUrl: browser.runtime.getURL('icons/icon-48.png'),
-        title: '❌ Erreur',
-        message: error.message
+        title: '✅ Article ajouté',
+        message: `"${response.article.title}" ajouté à la compilation (${draft.articles.length} article(s))`
       });
+
+      // Show alert on page
+      await showSuccessAlert(tab.id, draft.articles.length);
     }
   }
-});
+}, 'Context Menu Click'));
 
 // Handle keyboard command (Ctrl+Shift+E / Command+Shift+E)
-browser.commands.onCommand.addListener(async (command) => {
+browser.commands.onCommand.addListener(withErrorHandling(async (command) => {
   if (command === 'add-and-show') {
     const tabs = await browser.tabs.query({ active: true, currentWindow: true });
     const tab = tabs[0];
 
-    try {
-      // Extract article
-      const response = await browser.tabs.sendMessage(tab.id, {
-        action: 'extractArticle'
-      });
+    // Extract article
+    const response = await browser.tabs.sendMessage(tab.id, {
+      action: 'extractArticle'
+    });
 
-      if (response && response.article) {
-        // Add to draft
-        const draft = await addArticleToDraft(response.article);
+    if (response && response.article) {
+      // Add to draft
+      const draft = await addArticleToDraft(response.article);
 
-        // Show success notification
-        browser.notifications.create({
-          type: 'basic',
-          iconUrl: browser.runtime.getURL('icons/icon-48.png'),
-          title: '✅ Article ajouté',
-          message: `"${response.article.title}" ajouté à la compilation (${draft.articles.length} article(s))`
-        });
-
-        // Show alert on page
-        browser.tabs.executeScript(tab.id, {
-          code: `
-            const alertDiv = document.createElement('div');
-            alertDiv.style.cssText = \`
-              position: fixed !important;
-              top: 20px !important;
-              right: 20px !important;
-              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-              color: white !important;
-              padding: 20px 30px !important;
-              border-radius: 10px !important;
-              box-shadow: 0 4px 20px rgba(0,0,0,0.3) !important;
-              z-index: 2147483647 !important;
-              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
-              font-size: 16px !important;
-              font-weight: bold !important;
-              animation: slideIn 0.3s ease-out !important;
-              pointer-events: none !important;
-            \`;
-            alertDiv.innerHTML = \`
-              <div style="display: flex; align-items: center; gap: 15px;">
-                <span style="font-size: 32px;">✅</span>
-                <div>
-                  <div style="font-size: 18px; margin-bottom: 5px;">Article ajouté</div>
-                  <div style="font-size: 14px; opacity: 0.9; font-weight: normal;">${draft.articles.length} article(s) dans la compilation</div>
-                </div>
-              </div>
-            \`;
-
-            const style = document.createElement('style');
-            style.textContent = \`
-              @keyframes slideIn {
-                from { transform: translateX(400px); opacity: 0; }
-                to { transform: translateX(0); opacity: 1; }
-              }
-              @keyframes slideOut {
-                from { transform: translateX(0); opacity: 1; }
-                to { transform: translateX(400px); opacity: 0; }
-              }
-            \`;
-            document.head.appendChild(style);
-            document.body.appendChild(alertDiv);
-
-            setTimeout(() => {
-              alertDiv.style.animation = 'slideOut 0.3s ease-out';
-              setTimeout(() => alertDiv.remove(), 300);
-            }, 3000);
-          `
-        });
-
-        // Note: Cannot open popup from keyboard shortcut in Firefox
-        // User will see notification and can click extension icon to see compilation
-      }
-    } catch (error) {
-      console.error('Error in add-and-show command:', error);
+      // Show success notification
       browser.notifications.create({
         type: 'basic',
         iconUrl: browser.runtime.getURL('icons/icon-48.png'),
-        title: '❌ Erreur',
-        message: error.message
+        title: '✅ Article ajouté',
+        message: `"${response.article.title}" ajouté à la compilation (${draft.articles.length} article(s))`
       });
+
+      // Show alert on page
+      await showSuccessAlert(tab.id, draft.articles.length);
+
+      // Note: Cannot open popup from keyboard shortcut in Firefox
+      // User will see notification and can click extension icon to see compilation
     }
   }
-});
+}, 'Keyboard Command'));
 
 // Handle messages from popup
 browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.action === 'exportDraft') {
-    handleExportDraft(message.draft)
-      .then(() => sendResponse({ success: true }))
-      .catch(error => sendResponse({ success: false, error: error.message }));
-    return true; // Keep channel open for async response
-  }
+  // Create async handler
+  const handleMessage = withErrorHandling(async () => {
+    switch (message.action) {
+      case 'exportDraft':
+        await handleExportDraft(message.draft);
+        return { success: true };
 
-  if (message.action === 'saveSingleArticle') {
-    handleSaveSingleArticle(message.tabId)
-      .then(() => sendResponse({ success: true }))
-      .catch(error => sendResponse({ success: false, error: error.message }));
-    return true; // Keep channel open for async response
-  }
+      case 'saveSingleArticle':
+        await handleSaveSingleArticle(message.tabId);
+        return { success: true };
 
-  if (message.action === 'addToDraft') {
-    handleAddToDraft(message.tabId)
-      .then(count => sendResponse({ success: true, count: count }))
-      .catch(error => sendResponse({ success: false, error: error.message }));
-    return true; // Keep channel open for async response
-  }
+      case 'addToDraft':
+        const count = await handleAddToDraft(message.tabId);
+        return { success: true, count };
+
+      default:
+        throw new Error(`Unknown action: ${message.action}`);
+    }
+  }, `Message Handler: ${message.action}`);
+
+  // Execute and send response
+  handleMessage().then(sendResponse).catch(error => {
+    sendResponse({ success: false, error: error.message });
+  });
+
+  return true; // Keep channel open for async response
 });
 
 // Handle export draft from popup
@@ -309,6 +286,161 @@ async function handleAddToDraft(tabId) {
   return draft.articles.length;
 }
 
+// ===== EPUB GENERATION HELPERS =====
+
+/**
+ * Extract image source from img element, checking multiple attributes for lazy-loaded images
+ */
+function extractImageSource(img) {
+  let src = img.getAttribute('src');
+
+  // Check for lazy-loaded images
+  if (!src || src.startsWith('data:')) {
+    src = img.getAttribute('data-src') ||
+          img.getAttribute('data-lazy-src') ||
+          img.getAttribute('data-original') ||
+          img.getAttribute('data-srcset') ||
+          img.getAttribute('data-src-retina') ||
+          img.getAttribute('data-lazy');
+  }
+
+  // Handle srcset format (take first URL if multiple)
+  if (src && src.includes(',')) {
+    src = src.split(',')[0].split(' ')[0].trim();
+  }
+
+  return src;
+}
+
+/**
+ * Download and process a single image for EPUB
+ */
+async function downloadImage(img, baseUrl, imagesFolder, imageIndex, imageCount, currentIndex) {
+  const src = extractImageSource(img);
+
+  if (!src || src.startsWith('data:')) {
+    console.warn(`  ⊘ [${currentIndex}/${imageCount}] Skipped (no valid src)`);
+    img.remove();
+    return null;
+  }
+
+  try {
+    const imageUrl = new URL(src, baseUrl).href;
+    console.log(`  [${currentIndex}/${imageCount}] Downloading: ${imageUrl}`);
+
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status} ${response.statusText}`);
+    }
+
+    const blob = await response.blob();
+    if (blob.size === 0) {
+      throw new Error('Empty image (0 bytes)');
+    }
+
+    const mimeType = blob.type || 'image/jpeg';
+    const ext = mimeType.split('/')[1] || 'jpg';
+    const filename = `image_${imageIndex}.${ext}`;
+
+    imagesFolder.file(filename, blob);
+    img.setAttribute('src', `images/${filename}`);
+
+    console.log(`  ✓ [${currentIndex}/${imageCount}] Saved as ${filename} (${mimeType}, ${(blob.size / 1024).toFixed(1)}KB)`);
+
+    return {
+      filename,
+      manifestItem: `    <item id="img_${imageIndex}" href="images/${filename}" media-type="${mimeType}"/>`
+    };
+  } catch (error) {
+    console.error(`  ✗ [${currentIndex}/${imageCount}] Failed: ${src}`);
+    console.error(`     Reason: ${error.message}`);
+
+    // Remove the entire parent element to avoid empty spaces
+    const parent = img.parentElement;
+    if (parent && parent.tagName !== 'BODY') {
+      parent.remove();
+    } else {
+      img.remove();
+    }
+
+    return null;
+  }
+}
+
+/**
+ * Process all images in an article
+ */
+async function processArticleImages(article, articleIndex, imagesFolder, startImageIndex) {
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = article.content;
+  const imgElements = tempDiv.querySelectorAll('img');
+
+  console.log(`Processing article ${articleIndex + 1}: "${article.title}" - Found ${imgElements.length} images`);
+
+  const imageManifestItems = [];
+  let imageCounter = startImageIndex;
+
+  for (let i = 0; i < imgElements.length; i++) {
+    const result = await downloadImage(
+      imgElements[i],
+      article.url || window.location.href,
+      imagesFolder,
+      imageCounter + 1,
+      imgElements.length,
+      i + 1
+    );
+
+    if (result) {
+      imageManifestItems.push(result.manifestItem);
+      imageCounter++;
+    }
+  }
+
+  return {
+    processedContent: tempDiv.innerHTML,
+    imageManifestItems,
+    imageCount: imageCounter - startImageIndex
+  };
+}
+
+/**
+ * Build chapter XHTML content
+ */
+function buildChapterXhtml(article) {
+  const parts = [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">',
+    '<html xmlns="http://www.w3.org/1999/xhtml">',
+    '<head>',
+    `  <title>${escapeXml(article.title)}</title>`,
+    '  <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>',
+    '  <style type="text/css">',
+    '    img {',
+    '      display: block;',
+    '      width: 100% !important;',
+    '      max-width: 100% !important;',
+    '      height: auto;',
+    '      margin: 1em 0;',
+    '      clear: both;',
+    '    }',
+    '  </style>',
+    '</head>',
+    '<body>',
+    `  <h1>${escapeXml(article.title)}</h1>`
+  ];
+
+  if (article.author) {
+    parts.push(`  <p><em>Par ${escapeXml(article.author)}</em></p>`);
+  }
+  if (article.date) {
+    parts.push(`  <p><em>${escapeXml(article.date)}</em></p>`);
+  }
+
+  parts.push('  <hr/>', `  ${article.processedContent}`, '</body>', '</html>');
+
+  return parts.join('\n');
+}
+
 // Generate multi-article EPUB from draft
 async function generateMultiArticleEPUB(draft) {
   const zip = new JSZip();
@@ -328,7 +460,6 @@ async function generateMultiArticleEPUB(draft) {
   const imagesFolder = oebps.folder('images');
 
   // Track all images and their manifest items
-  const allImages = [];
   const imageManifestItems = [];
   let globalImageCounter = 0;
 
@@ -339,103 +470,14 @@ async function generateMultiArticleEPUB(draft) {
     const article = draft.articles[articleIndex];
 
     // Download and embed images for this article
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = article.content;
-    const imgElements = tempDiv.querySelectorAll('img');
+    const imageResult = await processArticleImages(article, articleIndex, imagesFolder, globalImageCounter);
 
-    console.log(`Processing article ${articleIndex + 1}: "${article.title}" - Found ${imgElements.length} images`);
-
-    for (let i = 0; i < imgElements.length; i++) {
-      const img = imgElements[i];
-      let src = img.getAttribute('src');
-
-      // Check for lazy-loaded images
-      if (!src || src.startsWith('data:')) {
-        src = img.getAttribute('data-src') ||
-              img.getAttribute('data-lazy-src') ||
-              img.getAttribute('data-original') ||
-              img.getAttribute('data-srcset') ||
-              img.getAttribute('data-src-retina') ||
-              img.getAttribute('data-lazy');
-      }
-
-      // Handle srcset format (take first URL if multiple)
-      if (src && src.includes(',')) {
-        src = src.split(',')[0].split(' ')[0].trim();
-      }
-
-      if (src && !src.startsWith('data:')) {
-        try {
-          // Convert relative URLs to absolute
-          const imageUrl = new URL(src, article.url || window.location.href).href;
-
-          console.log(`  [${i + 1}/${imgElements.length}] Downloading: ${imageUrl}`);
-
-          // Download image
-          const response = await fetch(imageUrl);
-
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status} ${response.statusText}`);
-          }
-
-          const blob = await response.blob();
-
-          // Validate blob size
-          if (blob.size === 0) {
-            throw new Error('Empty image (0 bytes)');
-          }
-
-          // Determine image format and extension
-          const mimeType = blob.type || 'image/jpeg';
-          const ext = mimeType.split('/')[1] || 'jpg';
-          globalImageCounter++;
-          const filename = `image_${globalImageCounter}.${ext}`;
-
-          // Add image to EPUB
-          imagesFolder.file(filename, blob);
-
-          // Update img src in content
-          img.setAttribute('src', `images/${filename}`);
-
-          console.log(`  ✓ [${i + 1}/${imgElements.length}] Saved as ${filename} (${mimeType}, ${(blob.size / 1024).toFixed(1)}KB)`);
-
-          // Track for manifest
-          imageManifestItems.push(`    <item id="img_${globalImageCounter}" href="images/${filename}" media-type="${mimeType}"/>`);
-        } catch (error) {
-          console.error(`  ✗ [${i + 1}/${imgElements.length}] Failed: ${src}`);
-          console.error(`     Reason: ${error.message}`);
-          // Remove the entire parent element to avoid empty spaces
-          const parent = img.parentElement;
-          if (parent && parent.tagName !== 'BODY' && parent !== tempDiv) {
-            parent.remove();
-          } else {
-            img.remove();
-          }
-        }
-      } else {
-        console.warn(`  ⊘ [${i + 1}/${imgElements.length}] Skipped (no valid src): ${img.outerHTML.substring(0, 100)}`);
-        img.remove();
-      }
-    }
-
-    // Get updated content with corrected image paths
-    let contentWithImages = tempDiv.innerHTML;
-
-    // Debug: Check if image paths are in the content
-    const imagePathMatches = contentWithImages.match(/src="images\/[^"]+"/g);
-    if (imagePathMatches) {
-      console.log(`  → Found ${imagePathMatches.length} image references in HTML:`, imagePathMatches);
-    }
+    imageManifestItems.push(...imageResult.imageManifestItems);
+    globalImageCounter += imageResult.imageCount;
 
     // Process content
-    const cleanedContent = cleanHtmlEntities(contentWithImages);
+    const cleanedContent = cleanHtmlEntities(imageResult.processedContent);
     const xhtmlSafeContent = enforceXhtmlVoidElements(cleanedContent);
-
-    // Debug: Check final XHTML image tags
-    const xhtmlImageMatches = xhtmlSafeContent.match(/<img[^>]*>/gi);
-    if (xhtmlImageMatches) {
-      console.log(`  → Final XHTML img tags (${xhtmlImageMatches.length}):`, xhtmlImageMatches.slice(0, 2));
-    }
 
     processedArticles.push({
       ...article,
@@ -512,40 +554,8 @@ async function generateMultiArticleEPUB(draft) {
 
   // Generate individual chapter files
   processedArticles.forEach(article => {
-    // Build XHTML parts separately to avoid template literal issues with content
-    var chapterParts = [];
-    chapterParts.push('<?xml version="1.0" encoding="UTF-8"?>');
-    chapterParts.push('<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">');
-    chapterParts.push('<html xmlns="http://www.w3.org/1999/xhtml">');
-    chapterParts.push('<head>');
-    chapterParts.push('  <title>' + escapeXml(article.title) + '</title>');
-    chapterParts.push('  <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>');
-    chapterParts.push('  <style type="text/css">');
-    chapterParts.push('    img {');
-    chapterParts.push('      display: block;');
-    chapterParts.push('      width: 100% !important;');
-    chapterParts.push('      max-width: 100% !important;');
-    chapterParts.push('      height: auto;');
-    chapterParts.push('      margin: 1em 0;');
-    chapterParts.push('      clear: both;');
-    chapterParts.push('    }');
-    chapterParts.push('  </style>');
-    chapterParts.push('</head>');
-    chapterParts.push('<body>');
-    chapterParts.push('  <h1>' + escapeXml(article.title) + '</h1>');
-    if (article.author) {
-      chapterParts.push('  <p><em>Par ' + escapeXml(article.author) + '</em></p>');
-    }
-    if (article.date) {
-      chapterParts.push('  <p><em>' + escapeXml(article.date) + '</em></p>');
-    }
-    chapterParts.push('  <hr/>');
-    chapterParts.push('  ' + article.processedContent);
-    chapterParts.push('</body>');
-    chapterParts.push('</html>');
-
-    var chapterXhtml = chapterParts.join('\n');
-    oebps.file(article.chapterId + '.xhtml', chapterXhtml);
+    const chapterXhtml = buildChapterXhtml(article);
+    oebps.file(`${article.chapterId}.xhtml`, chapterXhtml);
   });
 
   // Generate content.opf with all chapters
