@@ -29,6 +29,8 @@ function extractArticle() {
     article = extractLeMonde();
   } else if (domain.includes('mediapart.fr')) {
     article = extractMediapart();
+  } else if (domain.includes('liberation.fr')) {
+    article = extractLiberation();
   } else {
     article = extractGeneric();
   }
@@ -36,6 +38,11 @@ function extractArticle() {
   // Fallback to generic if site-specific failed
   if ((!article || !article.content) && domain.includes('lemonde.fr')) {
     console.log('Le Monde extractor failed, trying generic...');
+    article = extractGeneric();
+  }
+
+  if ((!article || !article.content) && domain.includes('liberation.fr')) {
+    console.log('Liberation extractor failed, trying generic...');
     article = extractGeneric();
   }
 
@@ -163,6 +170,83 @@ function extractMediapart() {
   const contentEl = document.querySelector('.content-article');
   if (contentEl) {
     article.content = cleanContent(contentEl);
+  }
+
+  return article;
+}
+
+// Liberation specific extractor
+function extractLiberation() {
+  const article = {
+    title: '',
+    author: '',
+    date: '',
+    content: ''
+  };
+
+  // Title - try multiple selectors
+  const titleSelectors = [
+    'h1[itemprop="headline"]',
+    'article h1',
+    'h1.article-title',
+    'h1',
+    'meta[property="og:title"]'
+  ];
+
+  for (const selector of titleSelectors) {
+    const el = document.querySelector(selector);
+    if (el) {
+      article.title = el.content || el.textContent.trim();
+      if (article.title) break;
+    }
+  }
+
+  // Author
+  const authorSelectors = [
+    '[itemprop="author"]',
+    '.author',
+    '.article-author',
+    'meta[name="author"]'
+  ];
+
+  for (const selector of authorSelectors) {
+    const el = document.querySelector(selector);
+    if (el) {
+      article.author = el.content || el.textContent.trim();
+      if (article.author) break;
+    }
+  }
+
+  // Date
+  const dateSelectors = [
+    'time[datetime]',
+    '[itemprop="datePublished"]',
+    'meta[property="article:published_time"]',
+    '.article-date'
+  ];
+
+  for (const selector of dateSelectors) {
+    const el = document.querySelector(selector);
+    if (el) {
+      article.date = el.getAttribute('datetime') || el.content || el.textContent.trim();
+      if (article.date) break;
+    }
+  }
+
+  // Content - Liberation uses specific class names
+  const contentSelectors = [
+    '[itemprop="articleBody"]',
+    'article .article-body',
+    '.article-content',
+    'article'
+  ];
+
+  for (const selector of contentSelectors) {
+    const el = document.querySelector(selector);
+    if (el && el.textContent.trim().length > 200) {
+      article.content = cleanContent(el);
+      break;
+    }
   }
 
   return article;
@@ -301,10 +385,15 @@ function cleanContent(element) {
       img.getAttribute('src') ||
       img.getAttribute('data-src') ||
       img.getAttribute('data-original') ||
-      img.getAttribute('data-lazy-src');
+      img.getAttribute('data-lazy-src') ||
+      img.getAttribute('data-srcset') ||
+      img.getAttribute('data-src-retina') ||
+      img.getAttribute('data-lazy');
 
     if (originalSrc) {
-      img.setAttribute('src', resolveUrl(originalSrc));
+      // Handle srcset format (take first URL if multiple)
+      const cleanSrc = originalSrc.split(',')[0].split(' ')[0].trim();
+      img.setAttribute('src', resolveUrl(cleanSrc));
     }
 
     // Remove lazy loading attributes and srcset which often breaks EPUB readers
@@ -312,6 +401,9 @@ function cleanContent(element) {
     img.removeAttribute('data-src');
     img.removeAttribute('data-original');
     img.removeAttribute('data-lazy-src');
+    img.removeAttribute('data-srcset');
+    img.removeAttribute('data-src-retina');
+    img.removeAttribute('data-lazy');
     img.removeAttribute('srcset');
     img.removeAttribute('sizes');
   });

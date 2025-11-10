@@ -351,7 +351,17 @@ async function generateMultiArticleEPUB(draft) {
 
       // Check for lazy-loaded images
       if (!src || src.startsWith('data:')) {
-        src = img.getAttribute('data-src') || img.getAttribute('data-lazy-src') || img.getAttribute('data-original');
+        src = img.getAttribute('data-src') ||
+              img.getAttribute('data-lazy-src') ||
+              img.getAttribute('data-original') ||
+              img.getAttribute('data-srcset') ||
+              img.getAttribute('data-src-retina') ||
+              img.getAttribute('data-lazy');
+      }
+
+      // Handle srcset format (take first URL if multiple)
+      if (src && src.includes(',')) {
+        src = src.split(',')[0].split(' ')[0].trim();
       }
 
       if (src && !src.startsWith('data:')) {
@@ -958,24 +968,19 @@ function cleanHtmlEntities(html) {
   const cleanDiv = document.createElement('div');
   cleanDiv.innerHTML = cleaned;
 
+  // Remove hyperlinks - convert <a> tags to plain text
+  const links = cleanDiv.querySelectorAll('a');
+  links.forEach(link => {
+    const textNode = document.createTextNode(link.textContent);
+    link.parentNode.replaceChild(textNode, link);
+  });
+
   // Remove elements containing "Lire aussi", "À lire aussi", "Sur le même sujet", etc.
   const textsToRemove = [
-    'lire aussi',
-    'à lire aussi',
-    'lire également',
-    'sur le même sujet',
-    'dans la même rubrique',
-    'à voir aussi',
-    'voir aussi',
-    'nos articles',
-    'articles liés',
-    'articles recommandés',
-    'contenus sponsorisés',
-    'publicité',
-    'partager',
-    'newsletter',
-    's\'abonner',
-    'abonnez-vous'
+    'article réservé à nos abonnés',
+    'lire plus tard',
+    'le monde guides d\'achat',
+    'le monde jeux'
   ];
 
   // Find and remove elements
@@ -1001,9 +1006,8 @@ function cleanHtmlEntities(html) {
 
   // Remove common class-based elements
   const selectorsToRemove = [
-    '.related-articles',
+    '.catcher__content',
     '.article-related',
-    '.read-also',
     '.lire-aussi',
     '.recommended',
     '.recommendations',
@@ -1031,6 +1035,27 @@ function cleanHtmlEntities(html) {
       elements.forEach(el => el.remove());
     } catch (e) {
       // Ignore invalid selectors
+    }
+  });
+
+  // Remove "Lire aussi |" patterns with following text/links
+  // This handles cases like "Lire aussi | Article Title" or "Lire aussi | <link>"
+  const allTextNodes = [];
+  const walker = document.createTreeWalker(cleanDiv, NodeFilter.SHOW_TEXT, null, false);
+  let node;
+  while (node = walker.nextNode()) {
+    allTextNodes.push(node);
+  }
+
+  allTextNodes.forEach(textNode => {
+    const text = textNode.textContent;
+    // Match "Lire aussi |" or "Lire aussi:" followed by anything
+    if (/lire\s+aussi\s*[|:]/i.test(text)) {
+      // Remove the entire parent element containing this pattern
+      let parent = textNode.parentElement;
+      if (parent && parent !== cleanDiv) {
+        parent.remove();
+      }
     }
   });
 
