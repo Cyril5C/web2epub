@@ -289,24 +289,44 @@ async function handleAddToDraft(tabId) {
 // ===== EPUB GENERATION HELPERS =====
 
 /**
- * Extract image source from img element, checking multiple attributes for lazy-loaded images
+ * Extract the best image source URL from an img element
+ * Handles lazy-loading attributes and srcset formats
+ * @param {HTMLImageElement} img - The image element
+ * @returns {string|null} The best image URL or null
  */
 function extractImageSource(img) {
   let src = img.getAttribute('src');
 
-  // Check for lazy-loaded images
+  // Check for lazy-loaded images or placeholder src
   if (!src || src.startsWith('data:')) {
     src = img.getAttribute('data-src') ||
           img.getAttribute('data-lazy-src') ||
           img.getAttribute('data-original') ||
           img.getAttribute('data-srcset') ||
           img.getAttribute('data-src-retina') ||
-          img.getAttribute('data-lazy');
+          img.getAttribute('data-lazy') ||
+          img.getAttribute('srcset');  // Also check regular srcset
   }
 
-  // Handle srcset format (take first URL if multiple)
-  if (src && src.includes(',')) {
-    src = src.split(',')[0].split(' ')[0].trim();
+  // Parse srcset format if present (format: "url1 320w, url2 640w, url3 1024w")
+  if (src && (src.includes(',') || src.includes(' '))) {
+    // Split by comma to get individual entries
+    const entries = src.split(',').map(entry => entry.trim());
+
+    // Parse each entry to extract URL and width descriptor
+    const parsed = entries.map(entry => {
+      const parts = entry.split(/\s+/);
+      return {
+        url: parts[0],
+        width: parts[1] ? parseInt(parts[1]) : 0
+      };
+    });
+
+    // Sort by width descending to get the largest image
+    parsed.sort((a, b) => b.width - a.width);
+
+    // Take the largest image (or first if no width specified)
+    src = parsed[0].url;
   }
 
   return src;

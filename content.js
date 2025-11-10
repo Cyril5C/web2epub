@@ -381,18 +381,45 @@ function cleanContent(element) {
 
   const images = tempDiv.querySelectorAll('img');
   images.forEach(img => {
-    const originalSrc =
-      img.getAttribute('src') ||
-      img.getAttribute('data-src') ||
-      img.getAttribute('data-original') ||
-      img.getAttribute('data-lazy-src') ||
-      img.getAttribute('data-srcset') ||
-      img.getAttribute('data-src-retina') ||
-      img.getAttribute('data-lazy');
+    let originalSrc = img.getAttribute('src');
+
+    // Check for lazy-loaded images or placeholder src
+    if (!originalSrc || originalSrc.startsWith('data:')) {
+      originalSrc =
+        img.getAttribute('data-src') ||
+        img.getAttribute('data-original') ||
+        img.getAttribute('data-lazy-src') ||
+        img.getAttribute('data-srcset') ||
+        img.getAttribute('data-src-retina') ||
+        img.getAttribute('data-lazy') ||
+        img.getAttribute('srcset');  // Also check regular srcset
+    }
 
     if (originalSrc) {
-      // Handle srcset format (take first URL if multiple)
-      const cleanSrc = originalSrc.split(',')[0].split(' ')[0].trim();
+      // Parse srcset format if present (format: "url1 320w, url2 640w, url3 1024w")
+      let cleanSrc;
+      if (originalSrc.includes(',') || originalSrc.includes(' ')) {
+        // Split by comma to get individual entries
+        const entries = originalSrc.split(',').map(entry => entry.trim());
+
+        // Parse each entry to extract URL and width descriptor
+        const parsed = entries.map(entry => {
+          const parts = entry.split(/\s+/);
+          return {
+            url: parts[0],
+            width: parts[1] ? parseInt(parts[1]) : 0
+          };
+        });
+
+        // Sort by width descending to get the largest image
+        parsed.sort((a, b) => b.width - a.width);
+
+        // Take the largest image (or first if no width specified)
+        cleanSrc = parsed[0].url;
+      } else {
+        cleanSrc = originalSrc.trim();
+      }
+
       img.setAttribute('src', resolveUrl(cleanSrc));
     }
 
