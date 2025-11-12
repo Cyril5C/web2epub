@@ -1347,19 +1347,25 @@ async function createMosaicCover(imagesFolder, imageCount, articles) {
 
   // Map domains to readable names (same logic as index.html)
   function getSourceName(domain) {
-    if (domain.indexOf('lemonde.fr') !== -1) return 'Le Monde';
-    if (domain.indexOf('mediapart.fr') !== -1) return 'Mediapart';
-    if (domain.indexOf('liberation.fr') !== -1) return 'Libération';
-    if (domain.indexOf('lefigaro.fr') !== -1) return 'Le Figaro';
-    if (domain.indexOf('leparisien.fr') !== -1) return 'Le Parisien';
-    if (domain.indexOf('lexpress.fr') !== -1) return 'L\'Express';
-    if (domain.indexOf('nouvelobs.com') !== -1) return 'L\'Obs';
-    if (domain.indexOf('slate.fr') !== -1) return 'Slate';
-    if (domain.indexOf('huffingtonpost.fr') !== -1) return 'HuffPost';
-    if (domain.indexOf('courrierinternational.com') !== -1) return 'Courrier International';
-    if (domain.indexOf('francetvinfo.fr') !== -1) return 'France Info';
-    if (domain.indexOf('rfi.fr') !== -1) return 'RFI';
-    return domain.replace('www.', '');
+    // Normalize domain to lowercase for better matching (handles proxy domains like www-mediapart-fr.bnf.idm.oclc.org)
+    var normalizedDomain = domain.toLowerCase();
+
+    // Check for known sources (flexible matching to handle proxy domains)
+    if (normalizedDomain.indexOf('lemonde') !== -1) return 'Le Monde';
+    if (normalizedDomain.indexOf('mediapart') !== -1) return 'Mediapart';
+    if (normalizedDomain.indexOf('liberation') !== -1 || normalizedDomain.indexOf('libération') !== -1) return 'Libération';
+    if (normalizedDomain.indexOf('lefigaro') !== -1 || normalizedDomain.indexOf('figaro') !== -1) return 'Le Figaro';
+    if (normalizedDomain.indexOf('leparisien') !== -1 || normalizedDomain.indexOf('parisien') !== -1) return 'Le Parisien';
+    if (normalizedDomain.indexOf('lexpress') !== -1 || normalizedDomain.indexOf('express') !== -1) return 'L\'Express';
+    if (normalizedDomain.indexOf('nouvelobs') !== -1 || normalizedDomain.indexOf('obs') !== -1) return 'L\'Obs';
+    if (normalizedDomain.indexOf('slate') !== -1) return 'Slate';
+    if (normalizedDomain.indexOf('huffingtonpost') !== -1 || normalizedDomain.indexOf('huffpost') !== -1) return 'HuffPost';
+    if (normalizedDomain.indexOf('courrierinternational') !== -1 || normalizedDomain.indexOf('courrier') !== -1) return 'Courrier International';
+    if (normalizedDomain.indexOf('francetvinfo') !== -1 || normalizedDomain.indexOf('franceinfo') !== -1) return 'France Info';
+    if (normalizedDomain.indexOf('rfi') !== -1) return 'RFI';
+
+    // Fallback: clean up domain name
+    return domain.replace('www.', '').replace('www-', '').split('.')[0];
   }
 
   var sourcesList = [];
