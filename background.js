@@ -336,13 +336,16 @@ function extractImageSource(img) {
  * Download and process a single image for EPUB
  */
 async function downloadImage(img, baseUrl, imagesFolder, imageIndex, imageCount, currentIndex) {
-  const src = extractImageSource(img);
+  let src = extractImageSource(img);
 
   if (!src || src.startsWith('data:')) {
     console.warn(`  ⊘ [${currentIndex}/${imageCount}] Skipped (no valid src)`);
     img.remove();
     return null;
   }
+
+  // Decode HTML entities in URL (e.g., &amp; -> &)
+  src = decodeHtmlEntities(src);
 
   // Validate URL for security
   if (!isValidUrl(src)) {
@@ -728,9 +731,12 @@ async function generateEPUB(article) {
 
   for (let i = 0; i < imgElements.length; i++) {
     const img = imgElements[i];
-    const src = img.getAttribute('src');
+    let src = img.getAttribute('src');
 
     if (src) {
+      // Decode HTML entities in URL (e.g., &amp; -> &)
+      src = decodeHtmlEntities(src);
+
       // Validate URL for security
       if (!isValidUrl(src)) {
         console.warn(`Skipping dangerous URL in article: ${src}`);
@@ -952,6 +958,19 @@ function sanitizeHtml(html) {
   });
 
   return doc.body.innerHTML;
+}
+
+/**
+ * Decode HTML entities in a string (for URLs with &amp;, &lt;, etc.)
+ * @param {string} text - Text with HTML entities
+ * @returns {string} - Decoded text
+ */
+function decodeHtmlEntities(text) {
+  if (!text) return '';
+
+  const textarea = document.createElement('textarea');
+  textarea.innerHTML = text;
+  return textarea.value;
 }
 
 /**
